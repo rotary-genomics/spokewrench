@@ -67,6 +67,22 @@ def main(args):
     logger.info(os.path.basename(sys.argv[0]) + ': done.')
 
 
+def parse_gene_positions():
+    """
+    Parses the positions of genes along a contig
+    :return:
+    """
+    # TODO
+
+
+def avoid_gene_collision():
+    """
+    Checks if the desired rotation point will collide with a gene and provides an alternative safe point if needed.
+    :return: The next-nearest position without a collision, with a buffer or on a particular side if requested
+    """
+    # TODO
+
+
 def rotate_sequence(sequence_record: SeqIO.SeqRecord, rotate_position: int, strip_description: bool = True):
     """
     Rotates an input (circular) sequence to a specified position
