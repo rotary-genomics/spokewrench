@@ -18,12 +18,9 @@ from rotary_utils.utils import check_dependency, run_pipeline_subcommand, set_wr
 # GLOBAL VARIABLES
 DEPENDENCY_NAMES = ['flye', 'minimap2', 'samtools', 'circlator']
 
-# Set up the logger
+# Initialize the logger
 logger = logging.getLogger(__name__)
 formatter = logging.Formatter('[ %(asctime)s ]: %(levelname)s: %(funcName)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-stream_handler = logging.StreamHandler()
-stream_handler.setFormatter(formatter)
-logger.addHandler(stream_handler)
 
 
 def main(args):

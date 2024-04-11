@@ -1,5 +1,5 @@
 [project]
-name = "Rotary-utils"
+name = "rotary-utils"
 version = "0.1.0"
 description = """Command-line utilities for manipulating genome or metagenome data with circular DNA elements. These
 utilities integrate with the Rotary pipeline."""
