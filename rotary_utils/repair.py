@@ -25,18 +25,11 @@ stream_handler.setFormatter(formatter)
 logger.addHandler(stream_handler)
 
 
-def main():
+def main(args):
     """
-    Collects input arguments and runs the end repair workflow
+    Runs the end repair workflow
+    :param args: arguments parsed by parse_cli()
     """
-
-    """
-    When installing through pip with pyprojects.toml a new python script is generated
-    that calls main() out of rotary.py. Run parser inside main() so it can be called
-    externally as a function.
-    """
-    parser = parse_cli()
-    args = parser.parse_args()
 
     # Startup checks
     if args.verbose is True:
@@ -906,16 +899,29 @@ def run_end_repair(long_read_filepath: str, assembly_fasta_filepath: str, assemb
                 f'A summary of repair work is saved at {end_repair_status_filepath}.')
 
 
-def parse_cli():
+def parse_cli(subparsers=None):
     """
     Parses the CLI arguments
+    :param subparsers An special action object created by argparse's add_subparsers() method.
+                      For example, parser = argparse.ArgumentParser(); subparsers = parser.add_subparsers()
+                      If subparsers is provided, then the new parser is added as a subparser within that object.
     :return: An argparse parser object
     """
 
-    parser = argparse.ArgumentParser(
-        description=f'{os.path.basename(sys.argv[0])}: pipeline to repair ends of circular contigs from Flye. \n'
-                    '  Copyright Jackson M. Tsuji and Lee Bergstrand, 2023',
-        formatter_class=argparse.RawDescriptionHelpFormatter)
+    description = 'Repairs ends of circular contigs from Flye.'
+
+    if subparsers:
+        # Initialize within the provided parser
+        parser = subparsers.add_parser('repair', help=description)
+
+        # Add attribute to tell main() what sub-command was called.
+        parser.set_defaults(repair=True)
+
+    else:
+        parser = argparse.ArgumentParser(
+            description=f'{os.path.basename(sys.argv[0])}: {description} \n'
+                        '  Copyright Jackson M. Tsuji and Lee Bergstrand, 2024',
+            formatter_class=argparse.RawDescriptionHelpFormatter)
 
     required_settings = parser.add_argument_group('Required')
     read_settings = parser.add_argument_group('Input read options')
@@ -979,7 +985,3 @@ def parse_cli():
                                    help='Enable verbose logging')
 
     return parser
-
-
-if __name__ == '__main__':
-    main()
