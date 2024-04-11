@@ -67,3 +67,31 @@ def run_pipeline_subcommand(command_args, stdin=None, stdout=None, stderr=None, 
         stdin = stdin.stdout
 
     return subprocess.run(command_args, check=check, input=stdin, stdout=stdout, stderr=stderr)
+
+
+def load_fasta_sequences(fasta_filepath: str, maximum_allowed_sequences: int = 0):
+    """
+    Loads FastA sequence records as BioPython SeqRecord objects.
+    :param fasta_filepath: Path to the FastA file (unzipped) to load
+    :param maximum_allowed_sequences: Maximum number of sequences allowed in the input file to load without error.
+                                      If 0, then no sequence number limit is applied.
+    :return: list of SeqRecord objects (one object per sequence loaded)
+    """
+
+    record_count = 0
+    sequence_records = []
+
+    with open(fasta_filepath) as fasta_handle:
+        for record in SeqIO.parse(fasta_handle, 'fasta'):
+
+            if (record_count < maximum_allowed_sequences) | (maximum_allowed_sequences == 0):
+                sequence_records.append(record)
+
+            elif record_count >= maximum_allowed_sequences:
+                logger.error(f'Input file {fasta_filepath} contains more than the maximum record limit of'
+                             f'{maximum_allowed_sequences} sequences.')
+                raise RuntimeError
+
+            record_count = record_count + 1
+
+    return sequence_records
