@@ -8,7 +8,7 @@ Once completed, these utilities will be able to serve as a modern replacement fo
 The utilities in *rotary-utils* are built into the [*rotary* project](https://github.com/rotary-genomics/rotary),
 where they are used with "best practices" to ensure proper assembly of circular sequences. These utilities can also
 be used in a standalone fashion or integrated into custom genome assembly workflows to ensure circular DNA/RNA elements
-are assembled accurately, similar to how circlator is currently used.
+are assembled accurately, similarly to how circlator is currently used.
 
 ## Requirements
 - OS: Runs on Linux (tested on Ubuntu 20.04 and Ubuntu 22.04) and macOS (tested on Sonoma 14)
@@ -16,7 +16,7 @@ are assembled accurately, similar to how circlator is currently used.
 - Resources: should run on a modern laptop with >=8 GB RAM and >=4 CPU threads, in most cases
 
 ## Installation
-```commandline
+```bash
 git clone https://github.com/rotary-genomics/rotary-utils.git
 
 conda env create -n rotary_utils --file=rotary-utils/environment.yml

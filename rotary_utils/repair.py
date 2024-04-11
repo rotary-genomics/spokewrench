@@ -18,9 +18,7 @@ from rotary_utils.utils import check_dependency, run_pipeline_subcommand, set_wr
 # GLOBAL VARIABLES
 DEPENDENCY_NAMES = ['flye', 'minimap2', 'samtools', 'circlator']
 
-# Initialize the logger
 logger = logging.getLogger(__name__)
-formatter = logging.Formatter('[ %(asctime)s ]: %(levelname)s: %(funcName)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
 
 def main(args):
@@ -32,8 +30,10 @@ def main(args):
     # Startup checks
     if args.verbose is True:
         logger.setLevel(logging.DEBUG)
+        logging.getLogger('rotary_utils.utils').setLevel(logging.DEBUG)
     else:
         logger.setLevel(logging.INFO)
+        logging.getLogger('rotary_utils.utils').setLevel(logging.INFO)
 
     # Check output dir
     output_dir_exists = os.path.isdir(args.output_dir)
@@ -48,6 +48,8 @@ def main(args):
 
     # Start log file in the output dir
     file_handler = logging.FileHandler(filename=os.path.join(args.output_dir, 'repaired.log'), mode='w')
+    formatter = logging.Formatter('[ %(asctime)s ]: %(levelname)s: %(filename)s: %(funcName)s: %(message)s',
+                                  datefmt='%Y-%m-%d %H:%M:%S')
     file_handler.setFormatter(formatter)
     file_handler.setLevel(logging.DEBUG)
     logger.addHandler(file_handler)

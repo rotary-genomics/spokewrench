@@ -8,7 +8,6 @@ import shlex
 import shutil
 import subprocess
 
-# Initialize the logger
 logger = logging.getLogger(__name__)
 
 

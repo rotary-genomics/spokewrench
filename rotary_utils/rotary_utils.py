@@ -10,9 +10,10 @@ import argparse
 
 import rotary_utils.repair as repair
 
-# Set up the logger
-logger = logging.getLogger(__name__)
-formatter = logging.Formatter('[ %(asctime)s ]: %(levelname)s: %(funcName)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+# Initialize the root logger with a stream handler
+logger = logging.getLogger()
+formatter = logging.Formatter('[ %(asctime)s ]: %(levelname)s: %(filename)s: %(funcName)s: %(message)s',
+                              datefmt='%Y-%m-%d %H:%M:%S')
 stream_handler = logging.StreamHandler()
 stream_handler.setFormatter(formatter)
 logger.addHandler(stream_handler)
