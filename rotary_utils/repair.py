@@ -1,18 +1,19 @@
 #!/usr/bin/env python
 # repair.py
 # Fixes ends of circular contigs produced by Flye
-# Copyright Jackson M. Tsuji and Lee H. Bergstrand 2023
+# Copyright Jackson M. Tsuji and Lee H. Bergstrand 2024
 
 import argparse
 import logging
 import os
-import shlex
 import shutil
 import subprocess
 import sys
 
 import pandas as pd
 from Bio import SeqIO
+
+from rotary_utils.utils import check_dependency, run_pipeline_subcommand, set_write_mode
 
 # GLOBAL VARIABLES
 DEPENDENCY_NAMES = ['flye', 'minimap2', 'samtools', 'circlator']
@@ -107,23 +108,6 @@ def main(args):
                    cli_tool_settings_dict, args.threads, threads_mem_mb)
 
     logger.info(os.path.basename(sys.argv[0]) + ': done.')
-
-
-def check_dependency(dependency_name: str):
-    """
-    Checks if a required shell dependency is present
-    :param dependency_name: name of the dependency
-    :return: path to the dependency
-    """
-
-    dependency_path = shutil.which(dependency_name)
-
-    if dependency_path is None:
-
-        logger.error(f'Dependency not found: {dependency_name}')
-        raise RuntimeError
-
-    return dependency_path
 
 
 def parse_assembly_info_file(assembly_info_filepath: str, info_type: str, return_type: str = 'circular'):
@@ -231,28 +215,6 @@ def subset_sequences(input_fasta_filepath: str, subset_sequence_ids: list):
         raise RuntimeError
 
 
-def set_write_mode(append_log: bool):
-    """
-    Converts the boolean append_log to 'w' or 'a' write modes
-    :param append_log: boolean of whether to append to an existing log file (True) or to overwrite an existing log
-                       file (False)
-    :return: string of either 'a' (append mode) or 'w' (write mode)
-    """
-
-    if append_log is True:
-        write_mode = 'a'
-
-    elif append_log is False:
-        write_mode = 'w'
-
-    else:
-
-        logger.error(f'append_log should be a boolean True or False; you provided {append_log}')
-        raise ValueError
-
-    return write_mode
-
-
 def generate_bed_file(contig_seqrecord: SeqIO.SeqRecord, bed_filepath: str, length_threshold: int = 100000):
     """
     Generates a BED file for a desired region around the ends of a contig
@@ -323,25 +285,6 @@ def map_long_reads(contig_filepath: str, long_read_filepath: str, output_bam_fil
         run_pipeline_subcommand(command_args=samtools_index_args, stderr=logfile_handle)
 
     logger.debug('Read mapping finished')
-
-
-def run_pipeline_subcommand(command_args, stdin=None, stdout=None, stderr=None, check=True):
-    """
-    Wrapper function for running subcommands.
-
-    :param command_args: The command line arguments of the subcommand (e.g., ['samtools', '-h'])
-    :param stdin: A subprocess.PIPE or None if stdin is not to be used.
-    :param stdout: Where to send stdout or None if stdout is not to be used.
-    :param stderr: Where to send stderr or None if stderr is not to be used.
-    :param check: Cause a runtime error if the subcommand fails.
-    :return: The output of the subcommand.
-    """
-    logger.debug(shlex.join(command_args))
-
-    if stdin:
-        stdin = stdin.stdout
-
-    return subprocess.run(command_args, check=check, input=stdin, stdout=stdout, stderr=stderr)
 
 
 def subset_reads_from_bam(bam_filepath: str, bed_filepath: str, subset_fastq_filepath: str, log_filepath: str,
