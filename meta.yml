@@ -1,0 +1,26 @@
+package:
+  name: rotary-utils
+  version: "0.1.0"
+
+source:
+  path: .
+
+requirements:
+  host:
+    - python
+    - poetry
+  run:
+    - pandas=1.4
+    - biopython=1.81
+
+build:
+  script: poetry install
+
+test:
+  commands:
+    - rotary-utils -h
+
+about:
+  home: https://github.com/rotary-genomics/rotary-utils
+  license: BSD 3
+  license_file: LICENSE
