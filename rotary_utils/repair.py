@@ -46,14 +46,6 @@ def main(args):
 
     os.makedirs(args.output_dir, exist_ok=True)
 
-    # Start log file in the output dir
-    file_handler = logging.FileHandler(filename=os.path.join(args.output_dir, 'repaired.log'), mode='w')
-    formatter = logging.Formatter('[ %(asctime)s ]: %(levelname)s: %(filename)s: %(funcName)s: %(message)s',
-                                  datefmt='%Y-%m-%d %H:%M:%S')
-    file_handler.setFormatter(formatter)
-    file_handler.setLevel(logging.DEBUG)
-    logger.addHandler(file_handler)
-
     # Check dependencies
     dependency_paths = []
     for dependency_name in DEPENDENCY_NAMES:
