@@ -87,18 +87,13 @@ def parse_assembly_info_file(assembly_info_filepath: str, info_type: str, return
     """
 
     if info_type == 'flye':
-
         logger.debug('Loading Flye-format assembly info file')
-
         assembly_info = pd.read_csv(assembly_info_filepath, sep='\t')
-
         circular_contigs = assembly_info[assembly_info['circ.'] == 'Y'][['#seq_name', 'length', 'circ.']]
         linear_contigs = assembly_info[assembly_info['circ.'] == 'N'][['#seq_name', 'length', 'circ.']]
 
     elif info_type == 'custom':
-
         logger.debug('Loading custom format assembly info file')
-
         assembly_info = pd.read_csv(assembly_info_filepath, sep='\t', header=None)
         assembly_info.columns = ['#seq_name', 'status']
 
@@ -115,31 +110,22 @@ def parse_assembly_info_file(assembly_info_filepath: str, info_type: str, return
 
         circular_contigs = assembly_info[assembly_info['status'] == 'circular']
         linear_contigs = assembly_info[assembly_info['status'] != 'circular']
-
     else:
-
         logger.error(f'Assembly info file format should be "flye" or "custom"; you provided {info_type}')
         raise ValueError
 
     # Check for duplicate sequence IDs
     if assembly_info['#seq_name'].drop_duplicates().shape[0] < assembly_info['#seq_name'].shape[0]:
         duplicated_ids = set(assembly_info['#seq_name'][assembly_info['#seq_name'].duplicated() == True])
-
         logger.error(f'Some sequence IDs are duplicated in the input assembly info file: {", ".join(duplicated_ids)}')
         raise RuntimeError
-
     if return_type == 'circular':
-
         output_list = list(circular_contigs['#seq_name'])
         logger.debug(f'Found {len(output_list)} circular sequences')
-
     elif return_type == 'linear':
-
         output_list = list(linear_contigs['#seq_name'])
         logger.debug(f'Found {len(output_list)} linear sequences')
-
     else:
-
         logger.error(f'Return_type must be "circular" or "linear"; you provided "{return_type}"')
         raise RuntimeError
 
@@ -158,7 +144,6 @@ def subset_sequences(input_fasta_filepath: str, subset_sequence_ids: list):
     """
 
     sequence_names = []
-
     for record in load_fasta_sequences(input_fasta_filepath):
         sequence_names.append(record.name)
 
@@ -198,10 +183,8 @@ def generate_bed_file(contig_seqrecord: SeqIO.SeqRecord, bed_filepath: str, leng
         contigs = [contig_name]
         starts = [0]
         stops = [contig_length]
-
     else:
         half_threshold = int(length_threshold / 2)
-
         contigs = [contig_name, contig_name]
         starts = [0, contig_length - half_threshold]
         stops = [half_threshold, contig_length]
@@ -267,7 +250,6 @@ def subset_reads_from_bam(bam_filepath: str, bed_filepath: str, subset_fastq_fil
     write_mode = set_write_mode(append_log)
 
     with open(log_filepath, write_mode) as logfile_handle:
-
         # TODO - consider adding option to split long reads in half if they go around a short circular contig,
         #  like in circlator
         samtools_view_args = ['samtools', 'view', '-@', str(threads), '-L', bed_filepath, '-b', bam_filepath]
@@ -294,27 +276,22 @@ def run_flye(fastq_filepath: str, flye_outdir: str, flye_read_mode: str, flye_re
     :return: return code of Flye (0 if it finished successfully).
     """
 
-    write_mode = set_write_mode(append_log)
-
     # TODO - add support for PacBio reads
     if (flye_read_mode != 'nano-raw') & (flye_read_mode != 'nano-hq'):
-
         logger.error(f'flye_read_mode must be "nano-raw" or "nano-hq"; you provided {flye_read_mode}')
         raise ValueError
 
     flye_args = ['flye', f'--{flye_read_mode}', fastq_filepath, '-o', flye_outdir, '-t', str(threads)]
 
     if flye_read_error != 0:
-
         flye_args.append('--read_error')
         flye_args.append(flye_read_error)
 
+    write_mode = set_write_mode(append_log)
     with open(log_filepath, write_mode) as logfile_handle:
-
         flye_run = run_pipeline_subcommand(command_args=flye_args, check=False, stderr=logfile_handle)
 
     if flye_run.returncode != 0:
-
         logger.warning(f'Flye did not finish successfully; see log for details at "{log_filepath}"')
 
     return flye_run.returncode
@@ -341,12 +318,10 @@ def run_circlator_merge(circular_contig_filepath: str, patch_contig_filepath: st
     :return: circlator merge output is saved to disk at merge_outdir
     """
 
-    write_mode = set_write_mode(append_log)
-
     os.makedirs(merge_outdir, exist_ok=True)
 
+    write_mode = set_write_mode(append_log)
     with open(log_filepath, write_mode) as logfile_handle:
-
         circlator_merge_args = ['circlator', 'merge', '--verbose', '--min_id', str(circlator_min_id),
                                 '--min_length', str(circlator_min_length), '--ref_end', str(circlator_ref_end),
                                 '--reassemble_end', str(circlator_reassemble_end), circular_contig_filepath,
@@ -369,17 +344,12 @@ def check_circlator_success(circlator_logfile: str):
     # If a row is '1', it means it was stitched properly, but if '0', it means it was not stitched.
     # So if all rows are 1 (i.e., the sum of rows / # of rows is 1), it means everything was stitched properly.
     if circlator_info['circularised'].sum() / circlator_info.shape[0] == 1:
-
         logger.debug('Everything is stitched.')
         result = True
-
     elif circlator_info['circularised'].sum() >= 0:
-
         logger.debug('Not everything is stitched.')
         result = False
-
     else:
-
         logger.error('File processing error. # of non-stitched contigs is not >=0. Exiting...')
         raise RuntimeError
 
@@ -427,7 +397,6 @@ def link_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: str, length_o
                                 log_filepath=verbose_logfile, append_log=True, threads=threads)
 
     if flye_exit_status == 0:
-
         # Write the original contig sequence to a file
         circular_contig_filepath = os.path.join(length_outdir, 'original.fasta')
 
@@ -444,7 +413,6 @@ def link_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: str, length_o
                             circlator_ref_end=cli_tool_settings_dict['circlator_ref_end'],
                             circlator_reassemble_end=cli_tool_settings_dict['circlator_reassemble_end'],
                             log_filepath=verbose_logfile, append_log=True)
-
     else:
         logger.warning('Flye assembly FAILED')
 
@@ -481,7 +449,6 @@ def iterate_linking_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: st
     linked_ends = False
 
     while linked_ends is False:
-
         # Exit the function if all length thresholds have been tried
         if assembly_attempts >= len(length_thresholds):
             break
@@ -493,13 +460,11 @@ def iterate_linking_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: st
         if len(contig_record.seq) <= length_threshold:
             logger.info(f'Skipping length threshold of {length_threshold} because '
                         f'contig is shorter than this length ({len(contig_record.seq)} bp)')
-
             assembly_attempts = assembly_attempts + 1
             continue
 
         # Make sure that the circlator_min_length is shorter than the length threshold (otherwise merging is impossible)
         if cli_tool_settings_dict['circlator_min_length'] > length_threshold:
-
             revised_min_length = int(length_threshold * 0.9)
             cli_tool_settings_dict_revised = cli_tool_settings_dict.copy()
             cli_tool_settings_dict_revised['circlator_min_length'] = revised_min_length
@@ -551,7 +516,6 @@ def iterate_linking_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: st
             # Save a copy of the final circlator merge logfile in the main log directory
             shutil.copy(os.path.join(length_outdir, 'merge', 'merge.circularise_details.log'),
                         os.path.join(log_dir_base, f'{contig_record.name}_circlator_final.log'))
-
             linked_ends = True
 
         assembly_attempts = assembly_attempts + 1
@@ -591,31 +555,24 @@ def stitch_all_contigs(circular_contig_tmp_fasta: str, bam_filepath: str, linkin
     os.makedirs(os.path.join(linking_outdir_base, 'log_summary'), exist_ok=True)
 
     failed_contig_names = []
-
     with open(circular_contig_tmp_fasta) as fasta_handle:
-
         for contig_record in SeqIO.parse(fasta_handle, 'fasta'):
-
             logger.info(f'Starting end repair on contig: {contig_record.name}')
 
             # This is the temp folder that will be used for this contig during stitching
             linking_outdir = os.path.join(linking_outdir_base, contig_record.name)
-
             end_linkage_complete = iterate_linking_contig_ends(contig_record, bam_filepath, linking_outdir,
                                                                length_thresholds, cli_tool_settings_dict,
                                                                verbose_logfile, threads)
 
             if end_linkage_complete is False:
-
                 logger.warning(f'Contig {contig_record.name}: FAILED to linked contig ends')
                 os.makedirs(os.path.join(linking_outdir_base, 'troubleshooting'), exist_ok=True)
                 shutil.move(os.path.join(linking_outdir, 'logs'),
                             os.path.join(linking_outdir_base, 'troubleshooting', contig_record.name))
 
                 failed_contig_names.append(contig_record.name)
-
             elif end_linkage_complete is True:
-
                 # Append the successful contig onto the main file
                 with open(os.path.join(linking_outdir, 'stitched.fasta')) as input_handle:
                     with open(end_repaired_contigs_filepath, 'a') as append_handle:
@@ -623,11 +580,8 @@ def stitch_all_contigs(circular_contig_tmp_fasta: str, bam_filepath: str, linkin
 
                 shutil.move(os.path.join(linking_outdir, 'logs', f'{contig_record.name}_circlator_final.log'),
                             os.path.join(linking_outdir_base, 'log_summary', f'{contig_record.name}.log'))
-
                 shutil.rmtree(linking_outdir)
-
             else:
-
                 logger.error(f'end_linkage_complete should be boolean True or False; is actually '
                              f'{end_linkage_complete}')
                 raise ValueError
@@ -697,19 +651,16 @@ def run_end_repair(long_read_filepath: str, assembly_fasta_filepath: str, assemb
     failed_contig_names = stitch_all_contigs(circular_contig_tmp_fasta, bam_filepath, linking_outdir_base,
                                              end_repaired_contigs_filepath, length_thresholds, cli_tool_settings_dict,
                                              verbose_logfile, threads)
-
     os.makedirs(circlator_logdir, exist_ok=True)
     shutil.move(os.path.join(linking_outdir_base, 'log_summary'), circlator_logdir)
 
     # Check for contigs that could not be circularized
     if len(failed_contig_names) != 0:
-
         if os.path.isdir(os.path.join(linking_outdir_base, 'troubleshooting')):
             shutil.move(os.path.join(linking_outdir_base, 'troubleshooting'),
                         os.path.join(output_dir, 'troubleshooting'))
 
         if keep_failed_contigs is False:
-
             logger.error(f'{len(failed_contig_names)} contigs could not be circularized. A partial output file '
                          f'including successfully circularized contigs (and no linear contigs) is available at '
                          f'{end_repaired_contigs_filepath} for debugging. Exiting with error status. See temporary '
@@ -717,19 +668,15 @@ def run_end_repair(long_read_filepath: str, assembly_fasta_filepath: str, assemb
             sys.exit(1)
 
         elif keep_failed_contigs is True:
-
             logger.warning(f'{len(failed_contig_names)} contigs could not be circularized. The original (non-repaired) '
                            f'versions of these contigs will be included in the final output file')
             logger.warning(f'Names of contigs that could not be circularized: {", ".join(failed_contig_names)}')
 
             # Get the non-repaired circular contigs and append them to the repaired contigs file
             with open(end_repaired_contigs_filepath, 'a') as append_handle:
-
                 for record in subset_sequences(assembly_fasta_filepath, failed_contig_names):
                     SeqIO.write(record, append_handle, 'fasta')
-
         else:
-
             logger.error(f'keep_failed_contigs should be a boolean True or False; you provided {keep_failed_contigs}')
             raise ValueError
 
@@ -740,7 +687,6 @@ def run_end_repair(long_read_filepath: str, assembly_fasta_filepath: str, assemb
     linear_contig_names = parse_assembly_info_file(assembly_info_filepath, assembly_info_type, return_type='linear')
 
     with open(end_repaired_contigs_filepath, 'a') as append_handle:
-
         for record in subset_sequences(assembly_fasta_filepath, linear_contig_names):
             SeqIO.write(record, append_handle, 'fasta')
 

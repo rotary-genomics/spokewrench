@@ -30,10 +30,8 @@ def check_output_file(output_filepath: str, overwrite: bool = False):
             logger.error(f'Output file already exists: "{output_filepath}". Will not continue. Set the '
                          f'--overwrite flag at your own risk if you want to overwrite existing files.')
             sys.exit(1)
-
         elif overwrite is True:
             logger.warning(f'Output file already exists: "{output_filepath}". File will be overwritten.')
-
         else:
             raise ValueError
 
@@ -53,10 +51,8 @@ def set_up_output_directory(output_directory_filepath: str, overwrite: bool = Fa
             logger.error(f'Output directory already exists: "{output_directory_filepath}". Will not continue. Set the '
                          f'--overwrite flag at your own risk if you want to use an existing directory.')
             sys.exit(1)
-
         elif overwrite is True:
             logger.warning(f'Output directory already exists: "{output_directory_filepath}". Files may be overwritten.')
-
         else:
             raise ValueError
 
@@ -107,9 +103,7 @@ def check_dependency(dependency_name: str):
     """
 
     dependency_path = shutil.which(dependency_name)
-
     if dependency_path is None:
-
         logger.error(f'Dependency not found: {dependency_name}')
         raise RuntimeError
 
@@ -151,12 +145,9 @@ def set_write_mode(append_log: bool):
 
     if append_log is True:
         write_mode = 'a'
-
     elif append_log is False:
         write_mode = 'w'
-
     else:
-
         logger.error(f'append_log should be a boolean True or False; you provided {append_log}')
         raise ValueError
 
@@ -176,9 +167,9 @@ def run_pipeline_subcommand(command_args, stdin=None, stdout=None, stderr=None, 
     :param log: If True, write the shell command to logger in debug mode
     :return: The output of the subcommand.
     """
+
     if log is True:
         logger.debug(shlex.join(command_args))
-
     if stdin:
         stdin = stdin.stdout
 
@@ -196,32 +187,3 @@ def load_fasta_sequences(fasta_filepath: str):
     with open(fasta_filepath) as fasta_handle:
         for record in SeqIO.parse(fasta_handle, 'fasta'):
             yield record
-
-
-def load_all_fasta_sequences(fasta_filepath: str, maximum_allowed_sequences: int = 0):
-    """
-    Loads FastA sequence records as BioPython SeqRecord objects. Rather than yielding a generator as in
-    load_fasta_sequences(), this function returns a list of all loaded sequence records in RAM.
-
-    :param fasta_filepath: Path to the FastA file (unzipped) to load
-    :param maximum_allowed_sequences: Maximum number of sequences allowed in the input file to load without error.
-                                      If 0, then no sequence number limit is applied.
-    :return: list of SeqRecord objects (one object per sequence loaded)
-    """
-
-    record_count = 0
-    sequence_records = []
-
-    for record in load_fasta_sequences(fasta_filepath):
-
-        if (record_count < maximum_allowed_sequences) | (maximum_allowed_sequences == 0):
-            sequence_records.append(record)
-
-        elif record_count >= maximum_allowed_sequences:
-            logger.error(f'Input file {fasta_filepath} contains more than the maximum record limit of'
-                         f'{maximum_allowed_sequences} sequences.')
-            raise RuntimeError
-
-        record_count = record_count + 1
-
-    return sequence_records

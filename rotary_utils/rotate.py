@@ -44,6 +44,11 @@ def main(args):
     # Check that the user has provided OK instructions
     check_rotate_args(args)
 
+    # Check output files
+    check_output_file(output_filepath=args.output_fasta, overwrite=args.overwrite)
+    if args.output_report is not None:
+        check_output_file(output_filepath=args.output_report, overwrite=args.overwrite)
+
     # TODO: improve error handling if a bad comma-separated list is provided
     if args.sequence_names is not None:
         sequence_names = args.sequence_names.split(',')
@@ -56,24 +61,20 @@ def main(args):
         report = rotate_sequences_wf(args.input_fasta, args.output_fasta, rotate_type='fraction',
                                      rotate_value_single=0.5, sequence_names=sequence_names,
                                      strip_descriptions=args.strip_descriptions)
-
     elif args.rotate_position is not None:
         report = rotate_sequences_wf(args.input_fasta, args.output_fasta, rotate_type='position',
                                      rotate_value_single=args.rotate_position, sequence_names=sequence_names,
                                      strip_descriptions=args.strip_descriptions)
-
     elif args.rotate_fraction is not None:
         report = rotate_sequences_wf(args.input_fasta, args.output_fasta, rotate_type='fraction',
                                      rotate_value_single=args.rotate_fraction, sequence_names=sequence_names,
                                      strip_descriptions=args.strip_descriptions)
-
     elif args.rotate_position_table is not None:
         rotate_values_dict = parse_rotate_value_table(args.rotate_position_table, rotate_type='position')
 
         report = rotate_sequences_wf(args.input_fasta, args.output_fasta, rotate_type='position',
                                      rotate_values=rotate_values_dict, sequence_names=sequence_names,
                                      strip_descriptions=args.strip_descriptions)
-
     elif args.rotate_fraction_table is not None:
         rotate_values_dict = parse_rotate_value_table(args.rotate_fraction_table, rotate_type='fraction')
 
@@ -100,19 +101,14 @@ def check_rotate_args(args):
     """
 
     """
-    1. As described in the README, only one of the following arguments is allowed to be set for a run:
+    As described in the README, only one of the following arguments is allowed to be set for a run:
+    
     args.midpoint
     args.rotate_position
     args.rotate_fraction
     args.rotate_position_table
     args.rotate_fraction_table
-    
-    2. If overwrite is False, then no output files can already exist:
-    args.output_fasta
-    args.output_report
     """
-
-    # 1. Check rotate value arguments
     defined_arguments = 0
     for argument in [args.rotate_position, args.rotate_fraction, args.rotate_position_table,
                      args.rotate_fraction_table]:
@@ -131,12 +127,6 @@ def check_rotate_args(args):
                            'of these to perform a rotate run.')
     elif defined_arguments != 1:
         raise RuntimeError('Ran into an issue processing the -m, -p, -P, -t, and -T arguments in the CLI.')
-
-    # 2. Check output files
-    check_output_file(output_filepath=args.output_fasta, overwrite=args.overwrite)
-
-    if args.output_report is not None:
-        check_output_file(output_filepath=args.output_report, overwrite=args.overwrite)
 
 
 def parse_rotate_value_table(rotate_table_filepath: str, rotate_type: str):
@@ -221,11 +211,10 @@ def rotate_sequence_to_position(sequence_record: SeqIO.SeqRecord, rotate_positio
         logger.debug(f'{sequence_record.name} ({sequence_length} bp): rotating by {rotate_position} bp '
                      f'counter-clockwise')
 
+    # Perform the sequence rotation
     sequence_rotated_front = sequence_record.seq[rotate_position:sequence_length]
     sequence_rotated_back = sequence_record.seq[0:rotate_position]
     sequence_rotated = sequence_rotated_front + sequence_rotated_back
-
-    # Update SeqRecord
     sequence_record.seq = sequence_rotated
 
     if strip_description:
@@ -251,7 +240,6 @@ def rotate_sequence_to_fraction(sequence_record: SeqIO.SeqRecord, rotate_fractio
     if rotate_fraction < 0:
         logger.error(f'Requested rotation fraction ({rotate_fraction}) is less than 0.')
         raise RuntimeError
-
     else:
         rotate_position = math.floor(sequence_length * rotate_fraction)
         logger.debug(f'{sequence_record.name}: rotating to {rotate_fraction} * {sequence_length} bp = '
@@ -321,10 +309,8 @@ def rotate_sequences_wf(fasta_filepath: str, output_filepath: str, rotate_type: 
                     except KeyError:
                         logger.debug(f'Sequence name {record.name} was not supplied in rotate_values. Will not rotate.')
                         rotate_value = 0
-
                 elif rotate_value_single is not None:
                     rotate_value = rotate_value_single
-
                 else:
                     raise RuntimeError('Could not find rotate_values or rotate_value_single.')
 
@@ -340,7 +326,7 @@ def rotate_sequences_wf(fasta_filepath: str, output_filepath: str, rotate_type: 
 
             else:
                 # Just pass the record through without rotation
-                rotate_value=0
+                rotate_value = 0
                 record_rotated = rotate_sequence_to_position(record, rotate_position=rotate_value,
                                                              strip_description=strip_descriptions)
 
