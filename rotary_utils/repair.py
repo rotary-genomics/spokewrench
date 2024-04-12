@@ -13,7 +13,8 @@ import sys
 import pandas as pd
 from Bio import SeqIO
 
-from rotary_utils.utils import check_dependencies, run_pipeline_subcommand, set_write_mode
+from rotary_utils.utils import check_dependencies, run_pipeline_subcommand, set_write_mode, load_fasta_sequences
+from rotary_utils.rotate import rotate_sequences_wf
 
 # GLOBAL VARIABLES
 DEPENDENCY_NAMES = ['flye', 'minimap2', 'samtools', 'circlator']
@@ -158,16 +159,11 @@ def subset_sequences(input_fasta_filepath: str, subset_sequence_ids: list):
 
     sequence_names = []
 
-    # Get the original (pre-stitched) contig sequence as a SeqRecord
-    with open(input_fasta_filepath) as fasta_handle:
+    for record in load_fasta_sequences(input_fasta_filepath):
+        sequence_names.append(record.name)
 
-        for record in SeqIO.parse(fasta_handle, 'fasta'):
-
-            sequence_names.append(record.name)
-
-            if record.name in subset_sequence_ids:
-
-                yield record
+        if record.name in subset_sequence_ids:
+            yield record
 
     # Raise an error if there are duplicate sequence names
     if len(set(sequence_names)) < len(sequence_names):
@@ -390,49 +386,6 @@ def check_circlator_success(circlator_logfile: str):
     return result
 
 
-def rotate_contig_to_midpoint(contig_fasta_filepath: str, output_filepath: str, append: bool = False):
-    """
-    Rotates an input (circular) contig to its approximate midpoint.
-
-    :param contig_fasta_filepath: path to a FastA file containing a single circular contig
-    :param output_filepath: path where the FastA file containing the output rotated contig should be saved
-    :param append: whether to append the output FastA onto an existing file (True) or overwrite (False)
-    :return: writes FastA file to output_filepath, 60 bp per line
-    """
-
-    write_mode = set_write_mode(append)
-
-    contig_count = 0
-
-    with open(contig_fasta_filepath) as fasta_handle:
-        for record in SeqIO.parse(fasta_handle, 'fasta'):
-
-            if contig_count == 0:
-                contig_record = record
-
-            elif contig_count > 0:
-                logger.error('More than one contig in input FastA file')
-                raise RuntimeError
-
-            contig_count = contig_count + 1
-
-    contig_length = len(contig_record.seq)
-    contig_midpoint = int(contig_length / 2)
-
-    logger.debug(f'Rotating contig to midpoint at {contig_midpoint} bp')
-    contig_sequence_rotated_front = contig_record.seq[contig_midpoint:contig_length]
-    contig_sequence_rotated_back = contig_record.seq[0:contig_midpoint]
-    contig_sequence_rotated = contig_sequence_rotated_front + contig_sequence_rotated_back
-
-    # Update SeqRecord
-    contig_record.seq = contig_sequence_rotated
-    contig_record.description = contig_record.name  # trim off description
-
-    # Write
-    with open(output_filepath, write_mode) as output_handle:
-        SeqIO.write(contig_record, output_handle, 'fasta')
-
-
 def link_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: str, length_outdir: str, length_threshold: int,
                      cli_tool_settings_dict: dict, verbose_logfile: str, threads: int = 1):
     """
@@ -591,8 +544,9 @@ def iterate_linking_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: st
             logger.info('Successfully linked contig ends')
 
             # Rotate to midpoint so that the stitched points can be polished more effectively downstream
-            rotate_contig_to_midpoint(os.path.join(length_outdir, 'merge', 'merge.fasta'),
-                                      os.path.join(linking_outdir, 'stitched.fasta'), append=False)
+            rotate_sequences_wf(fasta_filepath=os.path.join(length_outdir, 'merge', 'merge.fasta'),
+                                output_filepath=os.path.join(linking_outdir, 'stitched.fasta'), rotate_type='fraction',
+                                rotate_value_single=0.5, max_sequences_in_file=1, append=False, strip_descriptions=True)
 
             # Save a copy of the final circlator merge logfile in the main log directory
             shutil.copy(os.path.join(length_outdir, 'merge', 'merge.circularise_details.log'),
@@ -815,7 +769,7 @@ def run_end_repair(long_read_filepath: str, assembly_fasta_filepath: str, assemb
 def subparse_cli(subparsers, parent_parser: argparse.ArgumentParser = None):
     """
     Parses the CLI arguments and adds them as a subparser to an existing parser.
-    
+
     :param subparsers: A special subparser action object created from an existing parser by the add_subparsers() method.
                        For example, parser = argparse.ArgumentParser(); subparsers = parser.add_subparsers().
     :param parent_parser: An optional ArgParse object with additional arguments (e.g., shared across all modules) to

@@ -245,6 +245,7 @@ def rotate_sequence_to_fraction(sequence_record: SeqIO.SeqRecord, rotate_fractio
 
     else:
         rotate_position = math.floor(sequence_length * rotate_fraction)
+        logger.debug(f'Rotating contig to fraction {rotate_fraction} = position {rotate_position} bp')
 
     sequence_record = rotate_sequence_to_position(sequence_record, rotate_position=rotate_position,
                                                   strip_description=strip_description)
@@ -253,7 +254,7 @@ def rotate_sequence_to_fraction(sequence_record: SeqIO.SeqRecord, rotate_fractio
 
 
 def rotate_sequences_wf(fasta_filepath: str, output_filepath: str, rotate_type: str, rotate_values: dict = None,
-                        rotate_value_single: float = None, sequence_names: list = None,
+                        rotate_value_single: float = None, sequence_names: list = None, max_sequences_in_file: int = 0,
                         append: bool = False, strip_descriptions: bool = True):
     """
     Rotates all (circular) sequences in an input FastA file to specified positions or fractions.
@@ -272,6 +273,7 @@ def rotate_sequences_wf(fasta_filepath: str, output_filepath: str, rotate_type: 
                                 positional rotation, the largest you can rotate to is the length of the shortest
                                 sequence. This param cannot be set at the same time as rotate_values.
     :param sequence_names: list of sequence header IDs. Rotate operations will only be performed on these names.
+    :param max_sequences_in_file: maximum number of allowable sequences in the input file (default: 0 = unlimited)
     :param append: whether to append the output FastA onto an existing file (True) or overwrite (False)
     :param strip_descriptions: boolean of whether to trim off the read description in the output sequences
     :return: tabular report of rotation stats for each sequence
@@ -288,6 +290,7 @@ def rotate_sequences_wf(fasta_filepath: str, output_filepath: str, rotate_type: 
     sequence_ids = []
     sequence_lengths = []
     final_rotate_values = []
+    total_sequences_in_file = 0
 
     # Rotate each sequence by the specified amount
     write_mode = set_write_mode(append)
@@ -334,6 +337,12 @@ def rotate_sequences_wf(fasta_filepath: str, output_filepath: str, rotate_type: 
             sequence_ids.append(record.name)
             sequence_lengths.append(len(record.seq))
             final_rotate_values.append(rotate_value)
+
+            total_sequences_in_file = total_sequences_in_file + 1
+
+            if (max_sequences_in_file != 0) & (max_sequences_in_file < total_sequences_in_file):
+                raise RuntimeError(f'A maximum of {max_sequences_in_file} sequences is allowed, but the file contains '
+                                   f'more sequences than this.')
 
             SeqIO.write(record_rotated, output_handle, 'fasta')
 
