@@ -827,34 +827,35 @@ def subparse_cli(subparsers, parent_parser: argparse.ArgumentParser = None):
     merge_settings = subparser.add_argument_group('Merge options')
     workflow_settings = subparser.add_argument_group('Workflow options')
 
-    required_settings.add_argument('-l', '--long_read_filepath', required=True, type=str,
+    required_settings.add_argument('-l', '--long_read_filepath', metavar='PATH', required=True, type=str,
                                    help='QC-passing Nanopore reads')
-    required_settings.add_argument('-a', '--assembly_fasta_filepath', required=True, type=str,
+    required_settings.add_argument('-a', '--assembly_fasta_filepath', metavar='PATH', required=True, type=str,
                                    help='Contigs to be end-repaired')
-    required_settings.add_argument('-i', '--assembly_info_filepath', required=True, type=str,
+    required_settings.add_argument('-i', '--assembly_info_filepath', metavar='PATH', required=True, type=str,
                                    help='assembly_info.txt file from Flye showing which assembled contigs are circular '
                                         'vs. linear (or a custom guide file; see -c below)')
-    required_settings.add_argument('-o', '--output_dir', required=True, type=str, help='Output directory path')
+    required_settings.add_argument('-o', '--output_dir', metavar='PATH', required=True, type=str,
+                                   help='Output directory path')
 
-    read_settings.add_argument('-f', '--flye_read_mode', required=False, default='nano-hq',
+    read_settings.add_argument('-f', '--flye_read_mode', metavar='MODE', required=False, default='nano-hq',
                                choices=['nano-hq', 'nano-raw'],
                                help='Type of long read reads provided by -l, to be used for reassembly by Flye. See '
                                     'details on these settings in the Flye documentation. (default: nano-hq)')
-    read_settings.add_argument('-F', '--flye_read_error', required=False, default=0, type=float,
+    read_settings.add_argument('-F', '--flye_read_error', metavar='FRACTION', required=False, default=0, type=float,
                                help='Expected error rate of input reads, expressed as proportion (e.g., 0.03). '
                                     'If "0", then have flye set the read error automatically (default: 0)')
 
-    merge_settings.add_argument('-I', '--circlator_min_id', required=False, default=99, type=float,
+    merge_settings.add_argument('-I', '--circlator_min_id', metavar='PERCENT', required=False, default=99, type=float,
                                 help='Percent identity threshold for circlator merge (default: 99)')
-    merge_settings.add_argument('-L', '--circlator_min_length', required=False, default=10000, type=int,
-                                help='Minimum required overlap (bp) between original and merge contigs '
-                                     '(default: 10000)')
-    merge_settings.add_argument('-e', '--circlator_ref_end', required=False, default=100, type=int,
+    merge_settings.add_argument('-L', '--circlator_min_length', metavar='LENGTH', required=False, default=10000,
+                                type=int, help='Minimum required overlap (bp) between original and merge contigs '
+                                               '(default: 10000)')
+    merge_settings.add_argument('-e', '--circlator_ref_end', metavar='LENGTH', required=False, default=100, type=int,
                                 help='Minimum distance (bp) between end of original contig and nucmer hit '
                                      '(default: 100)')
-    merge_settings.add_argument('-E', '--circlator_reassemble_end', required=False, default=100, type=int,
-                                help='Minimum distance (bp) between end of merge contig and nucmer hit '
-                                     '(default: 100)')
+    merge_settings.add_argument('-E', '--circlator_reassemble_end', metavar='LENGTH', required=False, default=100,
+                                type=int, help='Minimum distance (bp) between end of merge contig and nucmer hit '
+                                               '(default: 100)')
 
     workflow_settings.add_argument('-k', '--keep_going_with_failed_contigs', required=False, action='store_true',
                                    help='Set this flag to continue running this script even if some contigs '
@@ -868,13 +869,13 @@ def subparse_cli(subparsers, parent_parser: argparse.ArgumentParser = None):
                                         'first column is the contig names; second column is the status of the contigs, '
                                         'either "circular" or "linear". Any contig names not in this file will be '
                                         'dropped by the script!')
-    workflow_settings.add_argument('-T', '--length_thresholds', required=False,
+    workflow_settings.add_argument('-T', '--length_thresholds', metavar='LIST', required=False,
                                    default='100000,75000,50000,25000,5000,2500,1000', type=str,
                                    help='Comma-separated list of length thresholds for reassembly around the contig '
                                         'ends (bp) (default: 100000,75000,50000,25000,5000,2500,1000)')
-    workflow_settings.add_argument('-t', '--threads', required=False, default=1, type=int,
+    workflow_settings.add_argument('-t', '--threads', metavar='JOBS', required=False, default=1, type=int,
                                    help='Number of processors threads to use (default: 1)')
-    workflow_settings.add_argument('-m', '--threads_mem', required=False, default=1, type=float,
+    workflow_settings.add_argument('-m', '--threads_mem', metavar='GB', required=False, default=1, type=float,
                                    help='Memory (GB) to use **per thread** for samtools sort (default: 1)')
 
     return subparser

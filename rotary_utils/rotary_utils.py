@@ -82,7 +82,7 @@ def parse_cli():
     # Common arguments across all modules
     parent_parser = argparse.ArgumentParser(add_help=False)
     basic_config = parent_parser.add_argument_group('Basic config settings')
-    basic_config.add_argument('-lf', '--logfile', required=False, default=None, type=str,
+    basic_config.add_argument('-lf', '--logfile', metavar='PATH', required=False, default=None, type=str,
                               help='Log filepath (default: None)')
     basic_config.add_argument('-O', '--overwrite', required=False, action='store_true',
                               help='Overwrite existing files/directories. By setting this flag, you risk erasing old '
