@@ -196,7 +196,8 @@ def rotate_sequence_to_position(sequence_record: SeqIO.SeqRecord, rotate_positio
     Rotates an input (circular) sequence to a specified position.
 
     :param sequence_record: BioPython SeqRecord object containing the sequence to rotate
-    :param rotate_position: new start position for the sequence after rotation (if 0, sequence is not rotated)
+    :param rotate_position: new start position for the sequence after rotation (if 0, sequence is not rotated). This can
+                            also be thought of as the number of bases to rotate counter-clockwise.
     :param strip_description: boolean of whether to trim off the read description in the output sequences
     :param quiet: run without logger debug outputs (for compatibility with rotate_sequence_to_fraction)
     :return: BioPython SeqRecord object of the rotated FastA file
@@ -239,7 +240,7 @@ def rotate_sequence_to_fraction(sequence_record: SeqIO.SeqRecord, rotate_fractio
 
     :param sequence_record: BioPython SeqRecord object containing the sequence to rotate
     :param rotate_fraction: fraction of the sequence length to rotate the sequence to (rounded down to nearest bp). Set
-                            to 0.5 to rotate to midpoint.
+                            to 0.5 to rotate to midpoint. Rotates counter-clockwise.
     :param strip_description: boolean of whether to trim off the read description in the output sequences
     :return: BioPython SeqRecord object of the rotated FastA file
     """
@@ -272,9 +273,10 @@ def rotate_sequences_wf(fasta_filepath: str, output_filepath: str, rotate_type: 
     :param rotate_type: whether the rotation is a 'position' based or a 'fraction' based rotation
     :param rotate_values: dict of sequence names (keys) and the desired rotation position or fraction for each sequence
                           (values). If rotate_type if 'position', expects the values to be the new start position for
-                          each sequence after rotation. If rotate_type if 'fraction', expects the values to be the
-                          fraction of total sequence length to rotate. If the value is set to 0 for a sequence, then
-                          that sequence is not rotated.
+                          each sequence after rotation (i.e., the number of bases to rotate counter-clockwise). If
+                          rotate_type if 'fraction', expects the values to be the fraction of total sequence length to
+                          rotate (counter-clockwise). If the value is set to 0 for a sequence, then that sequence is not
+                          rotated.
     :param rotate_value_single: a single value (position or fraction, depending on rotate_type) to rotate all sequences
                                 to. This is useful if you want to rotate all sequences to their midpoint, for example,
                                 via rotate_value_single=0.5 and rotate_type='fraction'. As a warning, if doing
@@ -394,25 +396,26 @@ def subparse_cli(subparsers, parent_parser: argparse.ArgumentParser = None):
     rotate_settings.add_argument('-m', '--midpoint', required=False, action='store_true',
                                  help='Rotate all sequences to their midpoint. (Incompatible with -p, -P, -t, and -T.)')
     rotate_settings.add_argument('-p', '--rotate_position', metavar='INT', required=False, type=int,
-                                 help='Base pair position to rotate all sequences to (to specify a unique rotate '
-                                      'position for each sequence, see -t). Incompatible with -m, -P, -t, and -T.')
+                                 help='Base pair position to rotate all sequences to (i.e., number of bases to rotate '
+                                      'counter-clockwise). To specify a unique rotate position for each sequence, see '
+                                      '-t). Incompatible with -m, -P, -t, and -T.')
     rotate_settings.add_argument('-P', '--rotate_fraction', metavar='INT', required=False, type=int,
-                                 help='Fractional position to rotate all sequences to (for example, 0.3 means to '
-                                      'rotate all contigs to 30 percent of their total length). To specificy a unique '
-                                      'fractional position for each sequence, see -T). Incompatible with -m, -p, -t, '
-                                      'and -T.')
+                                 help='Fractional position to rotate all sequences to, counter-clockwise. For example, '
+                                      '0.3 means to rotate all contigs counter-clockwise to 30 percent of their total '
+                                      'length). To specify a unique fractional position for each sequence, see -T). '
+                                      'Incompatible with -m, -p, -t, and -T.')
     rotate_settings.add_argument('-t', '--rotate_position_table', metavar='PATH', required=False, type=str,
                                  help='Path to a tab-separated file that contains the exact rotate position of '
-                                      'each sequence. Columns (with headers) should be "sequence_id" and '
-                                      '"rotate_position". Only sequences specified in the table will be rotated, '
-                                      'although all sequences in the input file will be written to the output file. '
-                                      'Incompatible with -m, -p, -P, and -T.')
+                                      'each sequence (i.e., bases to rotate counter-clockwise). Columns (with headers) '
+                                      'should be "sequence_id" and "rotate_position". Only sequences specified in the '
+                                      'table will be rotated, although all sequences in the input file will be written '
+                                      'to the output file. Incompatible with -m, -p, -P, and -T.')
     rotate_settings.add_argument('-T', '--rotate_fraction_table', metavar='PATH', required=False, type=str,
                                  help='Path to a tab-separated file that contains the exact fractional positions to '
-                                      'rotate each sequence to. Columns (with headers) should be "sequence_id" and '
-                                      '"rotate_fraction". Only sequences specified in the table will be rotated, '
-                                      'although all sequences in the input file will be written to the output file. '
-                                      'Incompatible with -m, -p, -P, and -t.')
+                                      'rotate each sequence to, in the counter-clockwise direction. Columns (with '
+                                      'headers) should be "sequence_id" and "rotate_fraction". Only sequences '
+                                      'specified in the table will be rotated, although all sequences in the input '
+                                      'file will be written to the output file. Incompatible with -m, -p, -P, and -t.')
     rotate_settings.add_argument('-n', '--sequence_names', metavar='LIST', required=False, type=str, default=None,
                                  help='Sequences to be rotated (comma-separated list of IDs). Rotate operations will '
                                       'only be applied to these sequences, although all sequences in the input file '
