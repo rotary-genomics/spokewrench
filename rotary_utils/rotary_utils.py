@@ -9,7 +9,9 @@ import os
 import logging
 import argparse
 
-from rotary_utils.utils import check_log_file, set_up_output_directory
+from rotary_utils.utils import check_output_file, set_up_output_directory
+from rotary_utils.rotate import main as rotate_main
+from rotary_utils.rotate import subparse_cli as subparse_rotate_cli
 from rotary_utils.repair import main as repair_main
 from rotary_utils.repair import subparse_cli as subparse_repair_cli
 
@@ -42,7 +44,7 @@ def main():
 
     # File logger setup
     if (hasattr(args, 'logfile')) and (args.logfile is not None):
-        check_log_file(log_filepath=args.logfile, overwrite=args.overwrite)
+        check_output_file(output_filepath=args.logfile, overwrite=args.overwrite)
 
         # Note: The logging level set here is the minimum level that the logger can write to. The actual level is
         #       defined for the root logger above in the args.verbose conditional.
@@ -63,7 +65,9 @@ def main():
         logger.addHandler(output_dir_file_handler)
 
     # Select the sub-command to run.
-    if hasattr(args, 'repair'):
+    if hasattr(args, 'rotate'):
+        rotate_main(args)
+    elif hasattr(args, 'repair'):
         repair_main(args)
     else:
         parser.print_help()
@@ -91,6 +95,7 @@ def parse_cli():
                               help='Enable verbose logging')
 
     # Declare sub-commands
+    subparse_rotate_cli(subparsers, parent_parser)
     subparse_repair_cli(subparsers, parent_parser)
 
     return parser
