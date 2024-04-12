@@ -9,7 +9,7 @@ import os
 import logging
 import argparse
 
-from rotary_utils.utils import check_log_file, set_up_output_directory
+from rotary_utils.utils import check_output_file, set_up_output_directory
 from rotary_utils.rotate import main as rotate_main
 from rotary_utils.rotate import subparse_cli as subparse_rotate_cli
 from rotary_utils.repair import main as repair_main
@@ -44,7 +44,7 @@ def main():
 
     # File logger setup
     if (hasattr(args, 'logfile')) and (args.logfile is not None):
-        check_log_file(log_filepath=args.logfile, overwrite=args.overwrite)
+        check_output_file(output_filepath=args.logfile, overwrite=args.overwrite)
 
         # Note: The logging level set here is the minimum level that the logger can write to. The actual level is
         #       defined for the root logger above in the args.verbose conditional.

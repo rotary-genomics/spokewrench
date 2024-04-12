@@ -12,7 +12,7 @@ import math
 from Bio import SeqIO
 import pandas as pd
 
-from rotary_utils.utils import set_write_mode, load_fasta_sequences
+from rotary_utils.utils import check_output_file, set_write_mode, load_fasta_sequences
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +37,7 @@ def main(args):
     logger.debug(f'Sequence names to rotate: {args.sequence_names}')
     logger.debug(f'Rotation report: {args.output_report}')
     logger.debug(f'Strip FastA header descriptions: {args.strip_descriptions}')
+    logger.debug(f'Overwrite output files if needed?: {args.overwrite}')
     logger.debug(f'Verbose logging: {args.verbose}')
     logger.debug('################')
 
@@ -46,6 +47,7 @@ def main(args):
     # TODO: improve error handling if a string is provided instead of a real length
     if args.sequence_names is not None:
         sequence_names = [int(x) for x in args.sequence_names.split(',')]
+        logger.debug(f'User provided a list of {len(args.sequence_names)} sequence IDs to search for rotation.')
     else:
         sequence_names = None
 
@@ -84,7 +86,6 @@ def main(args):
 
     # Save the rotation report if desired
     if args.output_report is not None:
-        # TODO: error if report file exists
         report.to_csv(args.output_report, sep='\t', index=False)
 
     logger.info(os.path.basename(sys.argv[0]) + ': done.')
@@ -98,15 +99,19 @@ def check_rotate_args(args):
     """
 
     """
-    As described in the README, only one of the following arguments is allowed to be set for a run:
-    
+    1. As described in the README, only one of the following arguments is allowed to be set for a run:
     args.midpoint
     args.rotate_position
     args.rotate_proportion
     args.rotate_position_table
     args.rotate_proportion_table
+    
+    2. If overwrite is False, then no output files can already exist:
+    args.output_fasta
+    args.output_report
     """
 
+    # 1. Check rotate value arguments
     rotate_value_arguments = [args.midpoint, args.rotate_position, args.rotate_proportion, args.rotate_position_table,
                               args.rotate_proportion_table]
 
@@ -121,8 +126,14 @@ def check_rotate_args(args):
     elif defined_arguments == 0:
         raise RuntimeError('None of -m, -p, -P, -t, and -T were specified in the command line, but you must select one '
                            'of these to perform a rotate run.')
-    else:
+    elif defined_arguments != 0:
         raise RuntimeError('Ran into an issue processing the -m, -p, -P, -t, and -T arguments in the CLI.')
+
+    # 2. Check output files
+    check_output_file(output_filepath=args.output_fasta, overwrite=args.overwrite)
+
+    if args.output_report is not None:
+        check_output_file(output_filepath=args.output_report, overwrite=args.overwrite)
 
 
 def parse_rotate_value_table(rotate_table_filepath: str, rotate_type: str):

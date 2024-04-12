@@ -15,23 +15,23 @@ from Bio import SeqIO
 logger = logging.getLogger(__name__)
 
 
-def check_log_file(log_filepath: str, overwrite: bool = False):
+def check_output_file(output_filepath: str, overwrite: bool = False):
     """
-    Checks if OK to create a log file. Raises an error if the log file already exists (unless overwrite=True)
-    :param log_filepath: path to the desired log file
-    :param overwrite: if True, the keep going with a warning if the log file already exists
+    Checks if OK to create an output file. Raises an error if the output file already exists (unless overwrite=True)
+    :param output_filepath: path to the desired output file
+    :param overwrite: if True, the keep going with a warning if the output file already exists
     """
 
-    log_file_exists = os.path.isfile(log_filepath)
+    output_file_exists = os.path.isfile(output_filepath)
 
-    if log_file_exists is True:
+    if output_file_exists is True:
         if overwrite is False:
-            logger.error(f'Log file already exists: "{log_filepath}". Will not continue. Set the '
+            logger.error(f'Output file already exists: "{output_filepath}". Will not continue. Set the '
                          f'--overwrite flag at your own risk if you want to overwrite existing files.')
             sys.exit(1)
 
         elif overwrite is True:
-            logger.warning(f'Log file already exists: "{log_filepath}". File will be overwritten.')
+            logger.warning(f'Output file already exists: "{output_filepath}". File will be overwritten.')
 
         else:
             raise ValueError
