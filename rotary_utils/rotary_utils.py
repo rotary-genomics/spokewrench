@@ -35,7 +35,7 @@ def main():
     stream_handler.setFormatter(formatter)
     logger.addHandler(stream_handler)
 
-    if args.verbose is True:
+    if (hasattr(args, 'verbose')) and (args.verbose is True):
         logger.setLevel(logging.DEBUG)
     else:
         logger.setLevel(logging.INFO)
@@ -64,7 +64,7 @@ def main():
 
     # Select the sub-command to run.
     if hasattr(args, 'repair'):
-        repair_main.main(args)
+        repair_main(args)
     else:
         parser.print_help()
 
