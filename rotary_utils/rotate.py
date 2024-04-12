@@ -31,9 +31,9 @@ def main(args):
     logger.debug(f'Output FastA: {args.output_fasta}')
     logger.debug(f'Midpoint rotation: {args.midpoint}')
     logger.debug(f'Constant rotate position: {args.rotate_position}')
-    logger.debug(f'Constant rotate proportion: {args.rotate_proportion}')
+    logger.debug(f'Constant rotate fraction: {args.rotate_fraction}')
     logger.debug(f'Rotate position table: {args.rotate_position_table}')
-    logger.debug(f'Rotate proportion table: {args.rotate_proportion_table}')
+    logger.debug(f'Rotate fraction table: {args.rotate_fraction_table}')
     logger.debug(f'Sequence names to rotate: {args.sequence_names}')
     logger.debug(f'Rotation report: {args.output_report}')
     logger.debug(f'Strip FastA header descriptions: {args.strip_descriptions}')
@@ -62,9 +62,9 @@ def main(args):
                                      rotate_value_single=args.rotate_position, sequence_names=sequence_names,
                                      strip_descriptions=args.strip_descriptions)
 
-    elif args.rotate_proportion is not None:
+    elif args.rotate_fraction is not None:
         report = rotate_sequences_wf(args.input_fasta, args.output_fasta, rotate_type='fraction',
-                                     rotate_value_single=args.rotate_proportion, sequence_names=sequence_names,
+                                     rotate_value_single=args.rotate_fraction, sequence_names=sequence_names,
                                      strip_descriptions=args.strip_descriptions)
 
     elif args.rotate_position_table is not None:
@@ -74,7 +74,7 @@ def main(args):
                                      rotate_values=rotate_values_dict, sequence_names=sequence_names,
                                      strip_descriptions=args.strip_descriptions)
 
-    elif args.rotate_proportion_table is not None:
+    elif args.rotate_fraction_table is not None:
         rotate_values_dict = parse_rotate_value_table(args.rotate_position_table, rotate_type='fraction')
 
         report = rotate_sequences_wf(args.input_fasta, args.output_fasta, rotate_type='fraction',
@@ -102,9 +102,9 @@ def check_rotate_args(args):
     1. As described in the README, only one of the following arguments is allowed to be set for a run:
     args.midpoint
     args.rotate_position
-    args.rotate_proportion
+    args.rotate_fraction
     args.rotate_position_table
-    args.rotate_proportion_table
+    args.rotate_fraction_table
     
     2. If overwrite is False, then no output files can already exist:
     args.output_fasta
@@ -112,8 +112,8 @@ def check_rotate_args(args):
     """
 
     # 1. Check rotate value arguments
-    rotate_value_arguments = [args.midpoint, args.rotate_position, args.rotate_proportion, args.rotate_position_table,
-                              args.rotate_proportion_table]
+    rotate_value_arguments = [args.midpoint, args.rotate_position, args.rotate_fraction, args.rotate_position_table,
+                              args.rotate_fraction_table]
 
     defined_arguments = 0
     for argument in rotate_value_arguments:
@@ -149,7 +149,7 @@ def parse_rotate_value_table(rotate_table_filepath: str, rotate_type: str):
     if rotate_type == 'position':
         expected_column_names = ['sequence_id', 'rotate_position']
     elif rotate_type == 'fraction':
-        expected_column_names = ['sequence_id', 'rotate_proportion']
+        expected_column_names = ['sequence_id', 'rotate_fraction']
     else:
         raise ValueError(f'Expected "position" or "fraction", but got "{rotate_type}".')
 
@@ -264,8 +264,8 @@ def rotate_sequences_wf(fasta_filepath: str, output_filepath: str, rotate_type: 
     :param rotate_values: dict of sequence names (keys) and the desired rotation position or fraction for each sequence
                           (values). If rotate_type if 'position', expects the values to be the new start position for
                           each sequence after rotation. If rotate_type if 'fraction', expects the values to be the
-                          fraction (or proportion) of total sequence length to rotate. If the value is set to 0 for a
-                          sequence, then that sequence is not rotated.
+                          fraction of total sequence length to rotate. If the value is set to 0 for a sequence, then
+                          that sequence is not rotated.
     :param rotate_value_single: a single value (position or fraction, depending on rotate_type) to rotate all sequences
                                 to. This is useful if you want to rotate all sequences to their midpoint, for example,
                                 via rotate_value_single=0.5 and rotate_type='fraction'. As a warning, if doing
@@ -379,7 +379,7 @@ def subparse_cli(subparsers, parent_parser: argparse.ArgumentParser = None):
     rotate_settings.add_argument('-p', '--rotate_position', metavar='INT', required=False, type=int,
                                  help='Base pair position to rotate all sequences to (to specify a unique rotate '
                                       'position for each sequence, see -t). Incompatible with -m, -P, -t, and -T.')
-    rotate_settings.add_argument('-P', '--rotate_proportion', metavar='FRACTION', required=False, type=float,
+    rotate_settings.add_argument('-P', '--rotate_fraction', metavar='FRACTION', required=False, type=float,
                                  help='Fractional position to rotate sequences to (e.g., 0.3 to rotate 30% of total '
                                       'length). To specify a unique fractional position to rotate for each sequence, '
                                       'see -T). Incompatible with -m, -p, -t, and -T.')
@@ -389,10 +389,10 @@ def subparse_cli(subparsers, parent_parser: argparse.ArgumentParser = None):
                                       '"rotate_position". Only sequences specified in the table will be rotated, '
                                       'although all sequences in the input file will be written to the output file. '
                                       'Incompatible with -m, -p, -P, and -T.')
-    rotate_settings.add_argument('-T', '--rotate_proportion_table', metavar='PATH', required=False, type=str,
+    rotate_settings.add_argument('-T', '--rotate_fraction_table', metavar='PATH', required=False, type=str,
                                  help='Path to a tab-separated file that contains the exact fractional positions to '
                                       'rotate each sequence to. Columns (with headers) should be "sequence_id" and '
-                                      '"rotate_proportion". Only sequences specified in the table will be rotated, '
+                                      '"rotate_fraction". Only sequences specified in the table will be rotated, '
                                       'although all sequences in the input file will be written to the output file. '
                                       'Incompatible with -m, -p, -P, and -t.')
     rotate_settings.add_argument('-n', '--sequence_names', metavar='LIST', required=False, type=str, default=None,
