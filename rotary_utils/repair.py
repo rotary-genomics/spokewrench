@@ -23,7 +23,8 @@ logger = logging.getLogger(__name__)
 
 def main(args):
     """
-    Runs the end repair workflow
+    Runs the end repair workflow.
+
     :param args: arguments parsed by parse_cli()
     """
 
@@ -73,7 +74,8 @@ def main(args):
 
 def parse_assembly_info_file(assembly_info_filepath: str, info_type: str, return_type: str = 'circular'):
     """
-    List circular and linear contigs from a Flye (or custom format) assembly info file
+    List circular and linear contigs from a Flye (or custom format) assembly info file.
+
     :param assembly_info_filepath: path to assembly_info.txt output by Flye
     :param info_type: whether the info file is in 'flye' format or is a 'custom' format.
                       'flye' format refers to the 'assembly_info.txt' format output by Flye after a successful assembly.
@@ -145,7 +147,8 @@ def parse_assembly_info_file(assembly_info_filepath: str, info_type: str, return
 
 def subset_sequences(input_fasta_filepath: str, subset_sequence_ids: list):
     """
-    Given an input FastA file, subsets the file to the provided sequence IDs
+    Given an input FastA file, subsets the file to the provided sequence IDs.
+
     :param input_fasta_filepath: Path to the input FastA file
     :param subset_sequence_ids: list of the names of sequences to keep. If any names in the list are not in the
                                 input file, the function will not return anything for those names. The function will
@@ -178,7 +181,8 @@ def subset_sequences(input_fasta_filepath: str, subset_sequence_ids: list):
 
 def generate_bed_file(contig_seqrecord: SeqIO.SeqRecord, bed_filepath: str, length_threshold: int = 100000):
     """
-    Generates a BED file for a desired region around the ends of a contig
+    Generates a BED file for a desired region around the ends of a contig.
+
     :param contig_seqrecord: SeqRecord of the contig
     :param bed_filepath: desired output filepath for the BED file
     :param length_threshold: length (bp) around the contig end to target in the BED file.
@@ -214,7 +218,8 @@ def generate_bed_file(contig_seqrecord: SeqIO.SeqRecord, bed_filepath: str, leng
 def map_long_reads(contig_filepath: str, long_read_filepath: str, output_bam_filepath: str, log_filepath: str,
                    append_log: bool = True, threads: int = 1, threads_mem_mb: float = 1):
     """
-    Maps long reads (via minimap2) to contigs and sorts/indexes the resulting BAM file
+    Maps long reads (via minimap2) to contigs and sorts/indexes the resulting BAM file.
+
     :param contig_filepath: path to the FastA file containing the reference contigs
     :param long_read_filepath: path to the FastQ file containing long reads to map (compressed is OK)
     :param output_bam_filepath: path to the BAM file to be saved
@@ -251,7 +256,8 @@ def map_long_reads(contig_filepath: str, long_read_filepath: str, output_bam_fil
 def subset_reads_from_bam(bam_filepath: str, bed_filepath: str, subset_fastq_filepath: str, log_filepath: str,
                           append_log: bool = True, threads: int = 1):
     """
-    Subsets reads from a BAM file that were mapped to regions defined in a BED file; saves reads to a FastQ file
+    Subsets reads from a BAM file that were mapped to regions defined in a BED file; saves reads to a FastQ file.
+
     :param bam_filepath: path to a BAM file containing reads mapped to a reference; BAM needs to be sorted and indexed
     :param bed_filepath: path to a BED file containing the regions of reference contigs to subset reads for
     :param subset_fastq_filepath: path to the FastQ file to be saved (.fastq.gz extension saves as Gzipped FastQ)
@@ -279,7 +285,8 @@ def subset_reads_from_bam(bam_filepath: str, bed_filepath: str, subset_fastq_fil
 def run_flye(fastq_filepath: str, flye_outdir: str, flye_read_mode: str, flye_read_error: float, log_filepath: str,
              append_log: bool = True, threads: int = 1):
     """
-    Runs Flye to assemble the reads in the input FastQ file. This function allows Flye to fail without raising an error
+    Runs Flye to assemble the reads in the input FastQ file. This function allows Flye to fail without raising an error.
+
     :param fastq_filepath: path to a FastQ file containing the input reads (gzipped is OK)
     :param flye_outdir: directory to save Flye output to
     :param flye_read_mode: type of long reads, either 'nano-raw' or 'nano-hq'
@@ -322,7 +329,7 @@ def run_circlator_merge(circular_contig_filepath: str, patch_contig_filepath: st
                         circlator_reassemble_end: int, log_filepath: str, append_log: bool = True):
     """
     Runs the 'circlator merge' module to stitch a gap-spanning contig onto the ends of a circular contig to confirm and
-    repair the circularization of the contig
+    repair the circularization of the contig.
 
     :param circular_contig_filepath: path to a FastA file containing the original (non-stitched) circular contig
     :param patch_contig_filepath: path to a FastA file containing a linear contig that should span the 'ends' of the
@@ -353,7 +360,8 @@ def run_circlator_merge(circular_contig_filepath: str, patch_contig_filepath: st
 
 def check_circlator_success(circlator_logfile: str):
     """
-    Checks the circlator log file to see if contig stitching was successful
+    Checks the circlator log file to see if contig stitching was successful.
+
     :param circlator_logfile: path to the circlator log file
     :return: Boolean of whether the contigs were successfully stitched or not
     """
@@ -384,7 +392,8 @@ def check_circlator_success(circlator_logfile: str):
 
 def rotate_contig_to_midpoint(contig_fasta_filepath: str, output_filepath: str, append: bool = False):
     """
-    Rotates an input (circular) contig to its approximate midpoint
+    Rotates an input (circular) contig to its approximate midpoint.
+
     :param contig_fasta_filepath: path to a FastA file containing a single circular contig
     :param output_filepath: path where the FastA file containing the output rotated contig should be saved
     :param append: whether to append the output FastA onto an existing file (True) or overwrite (False)
@@ -427,7 +436,7 @@ def rotate_contig_to_midpoint(contig_fasta_filepath: str, output_filepath: str, 
 def link_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: str, length_outdir: str, length_threshold: int,
                      cli_tool_settings_dict: dict, verbose_logfile: str, threads: int = 1):
     """
-    Attempt to stitch the ends of an input circular contig via assembling reads mapped within x bp of the contig ends
+    Attempt to stitch the ends of an input circular contig via assembling reads mapped within x bp of the contig ends.
 
     :param contig_record: SeqRecord of the circular contig
     :param bam_filepath: path to a BAM file with mapping information of long reads to the contig (it is OK if this file
@@ -493,7 +502,7 @@ def iterate_linking_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: st
                                 length_thresholds: list, cli_tool_settings_dict: dict,  verbose_logfile: str,
                                 threads: int = 1):
     """
-    Iterate link_contig_ends to try to stitch the ends of a circular contig using multiple length thresholds
+    Iterate link_contig_ends to try to stitch the ends of a circular contig using multiple length thresholds.
 
     :param contig_record: SeqRecord of the circular contig
     :param bam_filepath: path to a BAM file with mapping information of long reads to the contig (it is OK if this file
@@ -676,7 +685,7 @@ def run_end_repair(long_read_filepath: str, assembly_fasta_filepath: str, assemb
                    assembly_info_type: str, output_dir: str, length_thresholds: list, keep_failed_contigs: bool,
                    cli_tool_settings_dict: dict, threads: int, threads_mem_mb: int):
     """
-    Runs the end repair workflow
+    Runs the end repair workflow.
 
     :param long_read_filepath: path to the QC-passing Nanopore reads, FastQ format; gzipped is OK
     :param assembly_fasta_filepath: path to the assembled contigs output by Flye, FastA format
@@ -806,6 +815,7 @@ def run_end_repair(long_read_filepath: str, assembly_fasta_filepath: str, assemb
 def subparse_cli(subparsers, parent_parser: argparse.ArgumentParser = None):
     """
     Parses the CLI arguments and adds them as a subparser to an existing parser.
+    
     :param subparsers: A special subparser action object created from an existing parser by the add_subparsers() method.
                        For example, parser = argparse.ArgumentParser(); subparsers = parser.add_subparsers().
     :param parent_parser: An optional ArgParse object with additional arguments (e.g., shared across all modules) to
@@ -816,7 +826,7 @@ def subparse_cli(subparsers, parent_parser: argparse.ArgumentParser = None):
 
     description = 'Repairs ends of circular contigs from Flye.'
 
-    # Initialize within the provided parent parser
+    # Initialize within the provided subparser
     subparser = subparsers.add_parser('repair', help=description, parents=[parent_parser] if parent_parser else [])
 
     # Add attribute to tell main() what sub-command was called.
