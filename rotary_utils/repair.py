@@ -27,25 +27,6 @@ def main(args):
     :param args: arguments parsed by parse_cli()
     """
 
-    # Startup checks
-    if args.verbose is True:
-        logger.setLevel(logging.DEBUG)
-        logging.getLogger('rotary_utils.utils').setLevel(logging.DEBUG)
-    else:
-        logger.setLevel(logging.INFO)
-        logging.getLogger('rotary_utils.utils').setLevel(logging.INFO)
-
-    # Check output dir
-    output_dir_exists = os.path.isdir(args.output_dir)
-
-    if (output_dir_exists is True) & (args.overwrite is False):
-
-        logger.error(f'Output directory already exists: "{args.output_dir}". Will not continue. Set the '
-                     f'--overwrite flag at your own risk if you want to use an existing directory.')
-        sys.exit(1)
-
-    os.makedirs(args.output_dir, exist_ok=True)
-
     # Check dependencies
     dependency_paths = []
     for dependency_name in DEPENDENCY_NAMES:
@@ -82,6 +63,7 @@ def main(args):
     logger.debug(f'Circlator min. length: {cli_tool_settings_dict["circlator_min_length"]}')
     logger.debug(f'Circlator ref. end: {cli_tool_settings_dict["circlator_ref_end"]}')
     logger.debug(f'Circlator reassembly end: {cli_tool_settings_dict["circlator_reassemble_end"]}')
+    logger.debug(f'Custom log file path: {args.logfile}')
     logger.debug(f'Threads: {args.threads}')
     logger.debug(f'Memory per thread (GB = MB): {args.threads_mem} = {threads_mem_mb}')
     logger.debug(f'Verbose logging: {args.verbose}')
@@ -89,10 +71,6 @@ def main(args):
     for key, value in dependency_dict.items():
         logger.debug(f'{key}: {value}')
     logger.debug('################')
-
-    # Record a warning if the output dir was already there before the script started
-    if output_dir_exists is True:
-        logger.warning(f'Output directory already exists: "{args.output_dir}". Files may be overwritten.')
 
     run_end_repair(args.long_read_filepath, args.assembly_fasta_filepath, args.assembly_info_filepath,
                    assembly_info_type, args.output_dir, length_thresholds, args.keep_going_with_failed_contigs,
@@ -911,6 +889,8 @@ def parse_cli(subparsers=None):
                                    default='100000,75000,50000,25000,5000,2500,1000', type=str,
                                    help='Comma-separated list of length thresholds for reassembly around the contig '
                                         'ends (bp) (default: 100000,75000,50000,25000,5000,2500,1000)')
+    workflow_settings.add_argument('-lf', '--logfile', required=False, default=None, type=str,
+                                   help='Log filepath (default: None)')
     workflow_settings.add_argument('-t', '--threads', required=False, default=1, type=int,
                                    help='Number of processors threads to use (default: 1)')
     workflow_settings.add_argument('-m', '--threads_mem', required=False, default=1, type=float,
