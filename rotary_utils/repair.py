@@ -803,34 +803,29 @@ def run_end_repair(long_read_filepath: str, assembly_fasta_filepath: str, assemb
                 f'A summary of repair work is saved at {end_repair_status_filepath}.')
 
 
-def parse_cli(subparsers=None):
+def subparse_cli(subparsers, parent_parser: argparse.ArgumentParser = None):
     """
-    Parses the CLI arguments
-    :param subparsers An special action object created by argparse's add_subparsers() method.
-                      For example, parser = argparse.ArgumentParser(); subparsers = parser.add_subparsers()
-                      If subparsers is provided, then the new parser is added as a subparser within that object.
-    :return: An argparse parser object
+    Parses the CLI arguments and adds them as a subparser to an existing parser.
+    :param subparsers: A special subparser action object created from an existing parser by the add_subparsers() method.
+                       For example, parser = argparse.ArgumentParser(); subparsers = parser.add_subparsers().
+    :param parent_parser: An optional ArgParse object with additional arguments (e.g., shared across all modules) to
+                          add to this CLI parser. This can be a unique parser and does not need to be the parent of the
+                          subparsers object. If None, then no parent will be added for the subparser.
+    :return: An ArgumentParser object created by subparsers.add_parser()
     """
 
     description = 'Repairs ends of circular contigs from Flye.'
 
-    if subparsers:
-        # Initialize within the provided parser
-        parser = subparsers.add_parser('repair', help=description)
+    # Initialize within the provided parent parser
+    subparser = subparsers.add_parser('repair', help=description, parents=[parent_parser] if parent_parser else [])
 
-        # Add attribute to tell main() what sub-command was called.
-        parser.set_defaults(repair=True)
+    # Add attribute to tell main() what sub-command was called.
+    subparser.set_defaults(repair=True)
 
-    else:
-        parser = argparse.ArgumentParser(
-            description=f'{os.path.basename(sys.argv[0])}: {description} \n'
-                        '  Copyright Jackson M. Tsuji and Lee Bergstrand, 2024',
-            formatter_class=argparse.RawDescriptionHelpFormatter)
-
-    required_settings = parser.add_argument_group('Required')
-    read_settings = parser.add_argument_group('Input read options')
-    merge_settings = parser.add_argument_group('Merge options')
-    workflow_settings = parser.add_argument_group('Workflow options')
+    required_settings = subparser.add_argument_group('Required')
+    read_settings = subparser.add_argument_group('Input read options')
+    merge_settings = subparser.add_argument_group('Merge options')
+    workflow_settings = subparser.add_argument_group('Workflow options')
 
     required_settings.add_argument('-l', '--long_read_filepath', required=True, type=str,
                                    help='QC-passing Nanopore reads')
@@ -873,21 +868,13 @@ def parse_cli(subparsers=None):
                                         'first column is the contig names; second column is the status of the contigs, '
                                         'either "circular" or "linear". Any contig names not in this file will be '
                                         'dropped by the script!')
-    workflow_settings.add_argument('-O', '--overwrite', required=False, action='store_true',
-                                   help='Set this flag to overwrite an existing output directory and its contents; by '
-                                        'default this code will throw an error if the output directory already exists. '
-                                        'By setting this flag, you risk erasing old data and/or running into errors.')
     workflow_settings.add_argument('-T', '--length_thresholds', required=False,
                                    default='100000,75000,50000,25000,5000,2500,1000', type=str,
                                    help='Comma-separated list of length thresholds for reassembly around the contig '
                                         'ends (bp) (default: 100000,75000,50000,25000,5000,2500,1000)')
-    workflow_settings.add_argument('-lf', '--logfile', required=False, default=None, type=str,
-                                   help='Log filepath (default: None)')
     workflow_settings.add_argument('-t', '--threads', required=False, default=1, type=int,
                                    help='Number of processors threads to use (default: 1)')
     workflow_settings.add_argument('-m', '--threads_mem', required=False, default=1, type=float,
                                    help='Memory (GB) to use **per thread** for samtools sort (default: 1)')
-    workflow_settings.add_argument('-v', '--verbose', required=False, action='store_true',
-                                   help='Enable verbose logging')
 
-    return parser
+    return subparser

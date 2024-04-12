@@ -10,7 +10,8 @@ import logging
 import argparse
 
 from rotary_utils.utils import check_log_file, set_up_output_directory
-import rotary_utils.repair as repair
+from rotary_utils.repair import main as repair_main
+from rotary_utils.repair import subparse_cli as subparse_repair_cli
 
 
 def main():
@@ -63,7 +64,7 @@ def main():
 
     # Select the sub-command to run.
     if hasattr(args, 'repair'):
-        repair.main(args)
+        repair_main.main(args)
     else:
         parser.print_help()
 
@@ -78,8 +79,19 @@ def parse_cli():
     parser = argparse.ArgumentParser(description=cli_title)
     subparsers = parser.add_subparsers(help='Available Sub-commands')
 
+    # Common arguments across all modules
+    parent_parser = argparse.ArgumentParser(add_help=False)
+    basic_config = parent_parser.add_argument_group('Basic config settings')
+    basic_config.add_argument('-lf', '--logfile', required=False, default=None, type=str,
+                              help='Log filepath (default: None)')
+    basic_config.add_argument('-O', '--overwrite', required=False, action='store_true',
+                              help='Overwrite existing files/directories. By setting this flag, you risk erasing old '
+                                   'data.')
+    basic_config.add_argument('-v', '--verbose', required=False, action='store_true',
+                              help='Enable verbose logging')
+
     # Declare sub-commands
-    repair.parse_cli(subparsers)
+    subparse_repair_cli(subparsers, parent_parser)
 
     return parser
 
