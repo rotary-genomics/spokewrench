@@ -150,7 +150,7 @@ def parse_rotate_value_table(rotate_table_filepath: str, rotate_type: str):
     """
 
     if rotate_type == 'position':
-        expected_column_names = ['sequence_id', 'rotate_position']
+        expected_column_names = ['sequence_id', 'rotate_bp']
     elif rotate_type == 'fraction':
         expected_column_names = ['sequence_id', 'rotate_fraction']
     else:
@@ -408,7 +408,7 @@ def subparse_cli(subparsers, parent_parser: argparse.ArgumentParser = None):
     rotate_settings.add_argument('-t', '--rotate_position_table', metavar='PATH', required=False, type=str,
                                  help='Path to a tab-separated file that contains the desired amount to rotate each '
                                       'sequence by, in base pair position numbers, in the counter-clockwise direction. '
-                                      'Columns (with headers) should be "sequence_id" and "rotate_position". Only '
+                                      'Columns (with headers) should be "sequence_id" and "rotate_bp". Only '
                                       'sequences specified in the table will be rotated, although all sequences in the '
                                       'input file will be written to the output file. Incompatible with -m, -p, -P, '
                                       'and -T.')
