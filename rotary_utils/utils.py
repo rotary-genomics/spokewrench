@@ -17,7 +17,8 @@ logger = logging.getLogger(__name__)
 
 def check_output_file(output_filepath: str, overwrite: bool = False):
     """
-    Checks if OK to create an output file. Raises an error if the output file already exists (unless overwrite=True)
+    Checks if OK to create an output file. Raises an error if the output file already exists (unless overwrite=True).
+
     :param output_filepath: path to the desired output file
     :param overwrite: if True, the keep going with a warning if the output file already exists
     """
@@ -39,7 +40,8 @@ def check_output_file(output_filepath: str, overwrite: bool = False):
 
 def set_up_output_directory(output_directory_filepath: str, overwrite: bool = False):
     """
-    Creates an output directory. Raises an error if a directory already exists (unless overwrite=True)
+    Creates an output directory. Raises an error if a directory already exists (unless overwrite=True).
+
     :param output_directory_filepath: path to the desired output directory
     :param overwrite: if True, then keep going with a warning if the output directory already exists
     """
@@ -63,7 +65,8 @@ def set_up_output_directory(output_directory_filepath: str, overwrite: bool = Fa
 
 def get_dependency_version(dependency_name: str, log: bool = False):
     """
-    Tries to get the version of a dependency based on the name of the dependency
+    Tries to get the version of a dependency based on the name of the dependency.
+
     :param dependency_name: name of the dependency
     :param log: is True, print a log of the shell commands used
     :return: version of the dependency. 'unknown' if no version can be parsed
@@ -97,7 +100,8 @@ def get_dependency_version(dependency_name: str, log: bool = False):
 
 def check_dependency(dependency_name: str):
     """
-    Checks if a required shell dependency is present and tries to get its version
+    Checks if a required shell dependency is present and tries to get its version.
+
     :param dependency_name: name of the dependency
     :return: tuple: path to the dependency, dependency version (if available)
     """
@@ -118,6 +122,7 @@ def check_dependency(dependency_name: str):
 def check_dependencies(dependency_names: list):
     """
     For each provided dependency name, checks if the dependency exists and gets the path and version.
+
     :param dependency_names: a list of names of dependencies to check
     :return: a dictionary with dependency names as key and a tuple of dependency paths and versions as values
     """
@@ -137,7 +142,8 @@ def check_dependencies(dependency_names: list):
 
 def set_write_mode(append_log: bool):
     """
-    Converts the boolean append_log to 'w' or 'a' write modes
+    Converts the boolean append_log to 'w' or 'a' write modes.
+
     :param append_log: boolean of whether to append to an existing log file (True) or to overwrite an existing log
                        file (False)
     :return: string of either 'a' (append mode) or 'w' (write mode)
@@ -181,7 +187,7 @@ def run_pipeline_subcommand(command_args, stdin=None, stdout=None, stderr=None, 
 
 def load_fasta_sequences(fasta_filepath: str):
     """
-    Loads an input FastA file as a generator
+    Loads an input FastA file as a generator.
 
     :param fasta_filepath: Path to the FastA file (unzipped) to load
     :return: generator of a SeqRecord object for the loaded sequences
