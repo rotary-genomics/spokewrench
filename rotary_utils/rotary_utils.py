@@ -10,6 +10,8 @@ import logging
 import argparse
 
 from rotary_utils.utils import check_log_file, set_up_output_directory
+from rotary_utils.rotate import main as rotate_main
+from rotary_utils.rotate import subparse_cli as subparse_rotate_cli
 from rotary_utils.repair import main as repair_main
 from rotary_utils.repair import subparse_cli as subparse_repair_cli
 
@@ -63,6 +65,8 @@ def main():
         logger.addHandler(output_dir_file_handler)
 
     # Select the sub-command to run.
+    if hasattr(args, 'rotate'):
+        rotate_main(args)
     if hasattr(args, 'repair'):
         repair_main(args)
     else:
@@ -91,6 +95,7 @@ def parse_cli():
                               help='Enable verbose logging')
 
     # Declare sub-commands
+    subparse_rotate_cli(subparsers, parent_parser)
     subparse_repair_cli(subparsers, parent_parser)
 
     return parser

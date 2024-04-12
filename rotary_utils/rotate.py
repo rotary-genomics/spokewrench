@@ -16,38 +16,17 @@ from rotary_utils.utils import set_write_mode, load_fasta_sequences
 logger = logging.getLogger(__name__)
 
 
-# TODO - this is just a placeholder function for now to show some of the features I'd like to add to the CLI later on.
+# TODO: this is just a placeholder function for now to show some of the features I'd like to add to the CLI later on.
 def main(args):
     """
-    Starts the rotate utility
+    Starts the rotate utility.
+
     :param args: args parsed by parse_cli()
     """
 
-    # Startup checks
-    if args.verbose is True:
-        logger.setLevel(logging.DEBUG)
-        logging.getLogger('rotary_utils.utils').setLevel(logging.DEBUG)
-    else:
-        logger.setLevel(logging.INFO)
-        logging.getLogger('rotary_utils.utils').setLevel(logging.INFO)
-
-    # Check output file
-    # TODO - add overwrite flag
-    # TODO - make this info a function and check all other output files
-    # (TODO - add prefix flag)
-    # TODO - consider also checking if the directory where the output file will be saved exists and is writeable
-    # TODO - include a warning like logger.warning(f'Output file already exists: "{args.output_fasta}". Files may be overwritten.') to the log
-    output_file_exists = os.path.isfile(args.output_fasta)
-
-    if (output_file_exists is True) & (args.overwrite is False):
-
-        logger.error(f'Output file already exists: "{args.output_fasta}". Will not continue. Set the '
-                     f'--overwrite flag at your own risk if you want to overwrite files.')
-        sys.exit(1)
-
     # Parse some command line inputs further
-    # TODO - improve error handling if a string is provided instead of a real length
-    # TODO - confirm what the default value of args.contig_names will be - might need to specify
+    # TODO: improve error handling if a string is provided instead of a real length
+    # TODO: confirm what the default value of args.contig_names will be - might need to specify
     if args.contig_names is not None:
         contig_names = [int(x) for x in args.contig_names.split(',')]
 
@@ -56,36 +35,43 @@ def main(args):
     logger.debug('### SETTINGS ###')
     logger.debug(f'Input FastA: {args.input_fasta}')
     logger.debug(f'Output FastA: {args.output_fasta}')
-    # TODO - finish the rest of the startup messages
+    # TODO: finish the rest of the startup messages
 
     logger.debug(f'Threads: {args.threads}')
     logger.debug(f'Verbose logging: {args.verbose}')
     logger.debug('################')
 
-    # TODO - add rotate code
+    # TODO: add rotate code
 
     logger.info(os.path.basename(sys.argv[0]) + ': done.')
 
 
 def parse_gene_positions():
     """
-    Parses the positions of genes along a contig
-    :return:
+    Parses the positions of genes along a contig.
+
+    :return: table of gene positions
     """
-    # TODO
+    # TODO: this function is a stub.
+
+    pass
 
 
 def avoid_gene_collision():
     """
     Checks if the desired rotation point will collide with a gene and provides an alternative safe point if needed.
+
     :return: The next-nearest position without a collision, with a buffer or on a particular side if requested
     """
-    # TODO
+    # TODO: this function is a stub.
+
+    pass
 
 
 def rotate_sequence(sequence_record: SeqIO.SeqRecord, rotate_position: int, strip_description: bool = True):
     """
-    Rotates an input (circular) sequence to a specified position
+    Rotates an input (circular) sequence to a specified position.
+
     :param sequence_record: BioPython SeqRecord object containing the sequence to rotate
     :param rotate_position: new start position for the contig after rotation (if 0, contig is not rotated)
     :param strip_description: boolean of whether to trim off the read description in the output sequences
@@ -123,7 +109,8 @@ def rotate_sequence(sequence_record: SeqIO.SeqRecord, rotate_position: int, stri
 def rotate_sequence_to_fraction(sequence_record: SeqIO.SeqRecord, rotate_fraction: float,
                                 strip_description: bool = True):
     """
-    Rotates an input (circular) sequence to a specified fraction of the total length
+    Rotates an input (circular) sequence to a specified fraction of the total length.
+
     :param sequence_record: BioPython SeqRecord object containing the sequence to rotate
     :param rotate_fraction: fraction of the contig length to rotate the contig to (rounded down to nearest bp)
     :param strip_description: boolean of whether to trim off the read description in the output sequences
@@ -147,7 +134,8 @@ def rotate_sequence_to_fraction(sequence_record: SeqIO.SeqRecord, rotate_fractio
 
 def rotate_sequence_to_midpoint(sequence_record: SeqIO.SeqRecord, strip_description: bool = True):
     """
-    Rotates an input (circular) sequence to the approximate midpoint
+    Rotates an input (circular) sequence to the approximate midpoint.
+
     :param sequence_record: BioPython SeqRecord object containing the sequence to rotate
     :param strip_description: boolean of whether to trim off the read description in the output sequences
     :return: BioPython SeqRecord object of the rotated FastA file
@@ -155,14 +143,14 @@ def rotate_sequence_to_midpoint(sequence_record: SeqIO.SeqRecord, strip_descript
 
     sequence_record = rotate_sequence_to_fraction(sequence_record, rotate_fraction=0.5,
                                                   strip_description=strip_description)
-
     return sequence_record
 
 
 def rotate_sequences_wf(fasta_filepath: str, output_filepath: str, rotate_positions: dict, append: bool = False,
                         strip_descriptions: bool = True):
     """
-    Rotates all (circular) sequences in an input FastA file to a specified position
+    Rotates all (circular) sequences in an input FastA file to a specified position.
+
     :param fasta_filepath: Path to the FastA file (unzipped) to load. Assumes all entries are circular.
     :param output_filepath: path where the FastA file containing the output rotated contig should be saved
     :param rotate_positions: dict of contig names and new start positions for the contigs after rotation
@@ -189,7 +177,8 @@ def rotate_sequences_wf(fasta_filepath: str, output_filepath: str, rotate_positi
 def rotate_sequences_to_midpoint_wf(fasta_filepath: str, output_filepath: str, append: bool = False,
                                     strip_descriptions: bool = True):
     """
-    Rotates all (circular) sequences in an input FastA file to their midpoint
+    Rotates all (circular) sequences in an input FastA file to their midpoint.
+
     :param fasta_filepath: Path to the FastA file (unzipped) to load. Assumes all entries are circular.
     :param output_filepath: path where the FastA file containing the output rotated contig should be saved
     :param append: whether to append the output FastA onto an existing file (True) or overwrite (False)
@@ -210,33 +199,29 @@ def rotate_sequences_to_midpoint_wf(fasta_filepath: str, output_filepath: str, a
             SeqIO.write(record, output_handle, 'fasta')
 
 
-def parse_cli(subparsers=None):
+def subparse_cli(subparsers, parent_parser: argparse.ArgumentParser = None):
     """
-    Parses the CLI arguments
-    :param subparsers An special action object created by argparse's add_subparsers() method.
-                      For example, parser = argparse.ArgumentParser(); subparsers = parser.add_subparsers()
-                      If subparsers is provided, then the new parser is added as a subparser within that object.
-    :return: An argparse parser object
+    Parses the CLI arguments and adds them as a subparser to an existing parser.
+
+    :param subparsers: A special subparser action object created from an existing parser by the add_subparsers() method.
+                       For example, parser = argparse.ArgumentParser(); subparsers = parser.add_subparsers().
+    :param parent_parser: An optional ArgParse object with additional arguments (e.g., shared across all modules) to
+                          add to this CLI parser. This can be a unique parser and does not need to be the parent of the
+                          subparsers object. If None, then no parent will be added for the subparser.
+    :return: An ArgumentParser object created by subparsers.add_parser()
     """
 
     description = """Rotates circular contigs."""
 
-    if subparsers:
-        # Initialize within the provided parser
-        parser = subparsers.add_parser('rotate', help=description)
+    # Initialize within the provided subparser
+    subparser = subparsers.add_parser('rotate', help=description, parents=[parent_parser] if parent_parser else [])
 
-        # Add attribute to tell main() what sub-command was called.
-        parser.set_defaults(rotate=True)
+    # Add attribute to tell main() what sub-command was called.
+    subparser.set_defaults(rotate=True)
 
-    else:
-        parser = argparse.ArgumentParser(
-            description=f'{os.path.basename(sys.argv[0])}: {description} \n'
-                        '  Copyright Jackson M. Tsuji and Lee Bergstrand, 2024',
-            formatter_class=argparse.RawDescriptionHelpFormatter)
-
-    required_settings = parser.add_argument_group('Required')
-    rotate_settings = parser.add_argument_group('Rotate options')
-    workflow_settings = parser.add_argument_group('Workflow options')
+    required_settings = subparser.add_argument_group('Required')
+    rotate_settings = subparser.add_argument_group('Rotate options')
+    workflow_settings = subparser.add_argument_group('Workflow options')
 
     required_settings.add_argument('-i', '--input_fasta', required=True, type=str,
                                    help='Input contig fasta file')
@@ -283,4 +268,4 @@ def parse_cli(subparsers=None):
     workflow_settings.add_argument('-v', '--verbose', required=False, action='store_true',
                                    help='Enable verbose logging to screen')
 
-    return parser
+    return subparser
