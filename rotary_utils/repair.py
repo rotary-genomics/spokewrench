@@ -13,7 +13,8 @@ import sys
 import pandas as pd
 from Bio import SeqIO
 
-from rotary_utils.utils import check_dependency, run_pipeline_subcommand, set_write_mode
+from rotary_utils.utils import check_dependencies, run_pipeline_subcommand, set_write_mode, load_fasta_sequences
+from rotary_utils.rotate import rotate_sequences_wf
 
 # GLOBAL VARIABLES
 DEPENDENCY_NAMES = ['flye', 'minimap2', 'samtools', 'circlator']
@@ -23,35 +24,10 @@ logger = logging.getLogger(__name__)
 
 def main(args):
     """
-    Runs the end repair workflow
+    Runs the end repair workflow.
+
     :param args: arguments parsed by parse_cli()
     """
-
-    # Startup checks
-    if args.verbose is True:
-        logger.setLevel(logging.DEBUG)
-        logging.getLogger('rotary_utils.utils').setLevel(logging.DEBUG)
-    else:
-        logger.setLevel(logging.INFO)
-        logging.getLogger('rotary_utils.utils').setLevel(logging.INFO)
-
-    # Check output dir
-    output_dir_exists = os.path.isdir(args.output_dir)
-
-    if (output_dir_exists is True) & (args.overwrite is False):
-
-        logger.error(f'Output directory already exists: "{args.output_dir}". Will not continue. Set the '
-                     f'--overwrite flag at your own risk if you want to use an existing directory.')
-        sys.exit(1)
-
-    os.makedirs(args.output_dir, exist_ok=True)
-
-    # Check dependencies
-    dependency_paths = []
-    for dependency_name in DEPENDENCY_NAMES:
-        dependency_paths.append(check_dependency(dependency_name))
-
-    dependency_dict = dict(zip(DEPENDENCY_NAMES, dependency_paths))
 
     # Parse some command line inputs further
     assembly_info_type = 'custom' if args.custom_assembly_info_file is True else 'flye'
@@ -67,6 +43,8 @@ def main(args):
 
     # Startup messages
     logger.info('Running ' + os.path.basename(sys.argv[0]))
+    logger.debug('### DEPENDENCIES ###')
+    check_dependencies(dependency_names=DEPENDENCY_NAMES)
     logger.debug('### SETTINGS ###')
     logger.debug(f'Long read filepath: {args.long_read_filepath}')
     logger.debug(f'Assembly FastA filepath: {args.assembly_fasta_filepath}')
@@ -82,17 +60,11 @@ def main(args):
     logger.debug(f'Circlator min. length: {cli_tool_settings_dict["circlator_min_length"]}')
     logger.debug(f'Circlator ref. end: {cli_tool_settings_dict["circlator_ref_end"]}')
     logger.debug(f'Circlator reassembly end: {cli_tool_settings_dict["circlator_reassemble_end"]}')
+    logger.debug(f'Custom log file path: {args.logfile}')
     logger.debug(f'Threads: {args.threads}')
     logger.debug(f'Memory per thread (GB = MB): {args.threads_mem} = {threads_mem_mb}')
     logger.debug(f'Verbose logging: {args.verbose}')
-    logger.debug('### DEPENDENCIES ###')
-    for key, value in dependency_dict.items():
-        logger.debug(f'{key}: {value}')
     logger.debug('################')
-
-    # Record a warning if the output dir was already there before the script started
-    if output_dir_exists is True:
-        logger.warning(f'Output directory already exists: "{args.output_dir}". Files may be overwritten.')
 
     run_end_repair(args.long_read_filepath, args.assembly_fasta_filepath, args.assembly_info_filepath,
                    assembly_info_type, args.output_dir, length_thresholds, args.keep_going_with_failed_contigs,
@@ -103,7 +75,8 @@ def main(args):
 
 def parse_assembly_info_file(assembly_info_filepath: str, info_type: str, return_type: str = 'circular'):
     """
-    List circular and linear contigs from a Flye (or custom format) assembly info file
+    List circular and linear contigs from a Flye (or custom format) assembly info file.
+
     :param assembly_info_filepath: path to assembly_info.txt output by Flye
     :param info_type: whether the info file is in 'flye' format or is a 'custom' format.
                       'flye' format refers to the 'assembly_info.txt' format output by Flye after a successful assembly.
@@ -175,7 +148,8 @@ def parse_assembly_info_file(assembly_info_filepath: str, info_type: str, return
 
 def subset_sequences(input_fasta_filepath: str, subset_sequence_ids: list):
     """
-    Given an input FastA file, subsets the file to the provided sequence IDs
+    Given an input FastA file, subsets the file to the provided sequence IDs.
+
     :param input_fasta_filepath: Path to the input FastA file
     :param subset_sequence_ids: list of the names of sequences to keep. If any names in the list are not in the
                                 input file, the function will not return anything for those names. The function will
@@ -185,16 +159,11 @@ def subset_sequences(input_fasta_filepath: str, subset_sequence_ids: list):
 
     sequence_names = []
 
-    # Get the original (pre-stitched) contig sequence as a SeqRecord
-    with open(input_fasta_filepath) as fasta_handle:
+    for record in load_fasta_sequences(input_fasta_filepath):
+        sequence_names.append(record.name)
 
-        for record in SeqIO.parse(fasta_handle, 'fasta'):
-
-            sequence_names.append(record.name)
-
-            if record.name in subset_sequence_ids:
-
-                yield record
+        if record.name in subset_sequence_ids:
+            yield record
 
     # Raise an error if there are duplicate sequence names
     if len(set(sequence_names)) < len(sequence_names):
@@ -208,7 +177,8 @@ def subset_sequences(input_fasta_filepath: str, subset_sequence_ids: list):
 
 def generate_bed_file(contig_seqrecord: SeqIO.SeqRecord, bed_filepath: str, length_threshold: int = 100000):
     """
-    Generates a BED file for a desired region around the ends of a contig
+    Generates a BED file for a desired region around the ends of a contig.
+
     :param contig_seqrecord: SeqRecord of the contig
     :param bed_filepath: desired output filepath for the BED file
     :param length_threshold: length (bp) around the contig end to target in the BED file.
@@ -244,7 +214,8 @@ def generate_bed_file(contig_seqrecord: SeqIO.SeqRecord, bed_filepath: str, leng
 def map_long_reads(contig_filepath: str, long_read_filepath: str, output_bam_filepath: str, log_filepath: str,
                    append_log: bool = True, threads: int = 1, threads_mem_mb: float = 1):
     """
-    Maps long reads (via minimap2) to contigs and sorts/indexes the resulting BAM file
+    Maps long reads (via minimap2) to contigs and sorts/indexes the resulting BAM file.
+
     :param contig_filepath: path to the FastA file containing the reference contigs
     :param long_read_filepath: path to the FastQ file containing long reads to map (compressed is OK)
     :param output_bam_filepath: path to the BAM file to be saved
@@ -281,7 +252,8 @@ def map_long_reads(contig_filepath: str, long_read_filepath: str, output_bam_fil
 def subset_reads_from_bam(bam_filepath: str, bed_filepath: str, subset_fastq_filepath: str, log_filepath: str,
                           append_log: bool = True, threads: int = 1):
     """
-    Subsets reads from a BAM file that were mapped to regions defined in a BED file; saves reads to a FastQ file
+    Subsets reads from a BAM file that were mapped to regions defined in a BED file; saves reads to a FastQ file.
+
     :param bam_filepath: path to a BAM file containing reads mapped to a reference; BAM needs to be sorted and indexed
     :param bed_filepath: path to a BED file containing the regions of reference contigs to subset reads for
     :param subset_fastq_filepath: path to the FastQ file to be saved (.fastq.gz extension saves as Gzipped FastQ)
@@ -309,7 +281,8 @@ def subset_reads_from_bam(bam_filepath: str, bed_filepath: str, subset_fastq_fil
 def run_flye(fastq_filepath: str, flye_outdir: str, flye_read_mode: str, flye_read_error: float, log_filepath: str,
              append_log: bool = True, threads: int = 1):
     """
-    Runs Flye to assemble the reads in the input FastQ file. This function allows Flye to fail without raising an error
+    Runs Flye to assemble the reads in the input FastQ file. This function allows Flye to fail without raising an error.
+
     :param fastq_filepath: path to a FastQ file containing the input reads (gzipped is OK)
     :param flye_outdir: directory to save Flye output to
     :param flye_read_mode: type of long reads, either 'nano-raw' or 'nano-hq'
@@ -352,7 +325,7 @@ def run_circlator_merge(circular_contig_filepath: str, patch_contig_filepath: st
                         circlator_reassemble_end: int, log_filepath: str, append_log: bool = True):
     """
     Runs the 'circlator merge' module to stitch a gap-spanning contig onto the ends of a circular contig to confirm and
-    repair the circularization of the contig
+    repair the circularization of the contig.
 
     :param circular_contig_filepath: path to a FastA file containing the original (non-stitched) circular contig
     :param patch_contig_filepath: path to a FastA file containing a linear contig that should span the 'ends' of the
@@ -383,7 +356,8 @@ def run_circlator_merge(circular_contig_filepath: str, patch_contig_filepath: st
 
 def check_circlator_success(circlator_logfile: str):
     """
-    Checks the circlator log file to see if contig stitching was successful
+    Checks the circlator log file to see if contig stitching was successful.
+
     :param circlator_logfile: path to the circlator log file
     :return: Boolean of whether the contigs were successfully stitched or not
     """
@@ -412,52 +386,10 @@ def check_circlator_success(circlator_logfile: str):
     return result
 
 
-def rotate_contig_to_midpoint(contig_fasta_filepath: str, output_filepath: str, append: bool = False):
-    """
-    Rotates an input (circular) contig to its approximate midpoint
-    :param contig_fasta_filepath: path to a FastA file containing a single circular contig
-    :param output_filepath: path where the FastA file containing the output rotated contig should be saved
-    :param append: whether to append the output FastA onto an existing file (True) or overwrite (False)
-    :return: writes FastA file to output_filepath, 60 bp per line
-    """
-
-    write_mode = set_write_mode(append)
-
-    contig_count = 0
-
-    with open(contig_fasta_filepath) as fasta_handle:
-        for record in SeqIO.parse(fasta_handle, 'fasta'):
-
-            if contig_count == 0:
-                contig_record = record
-
-            elif contig_count > 0:
-                logger.error('More than one contig in input FastA file')
-                raise RuntimeError
-
-            contig_count = contig_count + 1
-
-    contig_length = len(contig_record.seq)
-    contig_midpoint = int(contig_length / 2)
-
-    logger.debug(f'Rotating contig to midpoint at {contig_midpoint} bp')
-    contig_sequence_rotated_front = contig_record.seq[contig_midpoint:contig_length]
-    contig_sequence_rotated_back = contig_record.seq[0:contig_midpoint]
-    contig_sequence_rotated = contig_sequence_rotated_front + contig_sequence_rotated_back
-
-    # Update SeqRecord
-    contig_record.seq = contig_sequence_rotated
-    contig_record.description = contig_record.name  # trim off description
-
-    # Write
-    with open(output_filepath, write_mode) as output_handle:
-        SeqIO.write(contig_record, output_handle, 'fasta')
-
-
 def link_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: str, length_outdir: str, length_threshold: int,
                      cli_tool_settings_dict: dict, verbose_logfile: str, threads: int = 1):
     """
-    Attempt to stitch the ends of an input circular contig via assembling reads mapped within x bp of the contig ends
+    Attempt to stitch the ends of an input circular contig via assembling reads mapped within x bp of the contig ends.
 
     :param contig_record: SeqRecord of the circular contig
     :param bam_filepath: path to a BAM file with mapping information of long reads to the contig (it is OK if this file
@@ -523,7 +455,7 @@ def iterate_linking_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: st
                                 length_thresholds: list, cli_tool_settings_dict: dict,  verbose_logfile: str,
                                 threads: int = 1):
     """
-    Iterate link_contig_ends to try to stitch the ends of a circular contig using multiple length thresholds
+    Iterate link_contig_ends to try to stitch the ends of a circular contig using multiple length thresholds.
 
     :param contig_record: SeqRecord of the circular contig
     :param bam_filepath: path to a BAM file with mapping information of long reads to the contig (it is OK if this file
@@ -612,8 +544,9 @@ def iterate_linking_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: st
             logger.info('Successfully linked contig ends')
 
             # Rotate to midpoint so that the stitched points can be polished more effectively downstream
-            rotate_contig_to_midpoint(os.path.join(length_outdir, 'merge', 'merge.fasta'),
-                                      os.path.join(linking_outdir, 'stitched.fasta'), append=False)
+            rotate_sequences_wf(fasta_filepath=os.path.join(length_outdir, 'merge', 'merge.fasta'),
+                                output_filepath=os.path.join(linking_outdir, 'stitched.fasta'), rotate_type='fraction',
+                                rotate_value_single=0.5, max_sequences_in_file=1, append=False, strip_descriptions=True)
 
             # Save a copy of the final circlator merge logfile in the main log directory
             shutil.copy(os.path.join(length_outdir, 'merge', 'merge.circularise_details.log'),
@@ -706,7 +639,7 @@ def run_end_repair(long_read_filepath: str, assembly_fasta_filepath: str, assemb
                    assembly_info_type: str, output_dir: str, length_thresholds: list, keep_failed_contigs: bool,
                    cli_tool_settings_dict: dict, threads: int, threads_mem_mb: int):
     """
-    Runs the end repair workflow
+    Runs the end repair workflow.
 
     :param long_read_filepath: path to the QC-passing Nanopore reads, FastQ format; gzipped is OK
     :param assembly_fasta_filepath: path to the assembled contigs output by Flye, FastA format
@@ -833,63 +766,60 @@ def run_end_repair(long_read_filepath: str, assembly_fasta_filepath: str, assemb
                 f'A summary of repair work is saved at {end_repair_status_filepath}.')
 
 
-def parse_cli(subparsers=None):
+def subparse_cli(subparsers, parent_parser: argparse.ArgumentParser = None):
     """
-    Parses the CLI arguments
-    :param subparsers An special action object created by argparse's add_subparsers() method.
-                      For example, parser = argparse.ArgumentParser(); subparsers = parser.add_subparsers()
-                      If subparsers is provided, then the new parser is added as a subparser within that object.
-    :return: An argparse parser object
+    Parses the CLI arguments and adds them as a subparser to an existing parser.
+
+    :param subparsers: A special subparser action object created from an existing parser by the add_subparsers() method.
+                       For example, parser = argparse.ArgumentParser(); subparsers = parser.add_subparsers().
+    :param parent_parser: An optional ArgParse object with additional arguments (e.g., shared across all modules) to
+                          add to this CLI parser. This can be a unique parser and does not need to be the parent of the
+                          subparsers object. If None, then no parent will be added for the subparser.
+    :return: An ArgumentParser object created by subparsers.add_parser()
     """
 
     description = 'Repairs ends of circular contigs from Flye.'
 
-    if subparsers:
-        # Initialize within the provided parser
-        parser = subparsers.add_parser('repair', help=description)
+    # Initialize within the provided subparser
+    subparser = subparsers.add_parser('repair', help=description, parents=[parent_parser] if parent_parser else [])
 
-        # Add attribute to tell main() what sub-command was called.
-        parser.set_defaults(repair=True)
+    # Add attribute to tell main() what sub-command was called.
+    subparser.set_defaults(repair=True)
 
-    else:
-        parser = argparse.ArgumentParser(
-            description=f'{os.path.basename(sys.argv[0])}: {description} \n'
-                        '  Copyright Jackson M. Tsuji and Lee Bergstrand, 2024',
-            formatter_class=argparse.RawDescriptionHelpFormatter)
+    required_settings = subparser.add_argument_group('Required')
+    read_settings = subparser.add_argument_group('Input read options')
+    merge_settings = subparser.add_argument_group('Merge options')
+    workflow_settings = subparser.add_argument_group('Workflow options')
 
-    required_settings = parser.add_argument_group('Required')
-    read_settings = parser.add_argument_group('Input read options')
-    merge_settings = parser.add_argument_group('Merge options')
-    workflow_settings = parser.add_argument_group('Workflow options')
-
-    required_settings.add_argument('-l', '--long_read_filepath', required=True, type=str,
+    required_settings.add_argument('-l', '--long_read_filepath', metavar='PATH', required=True, type=str,
                                    help='QC-passing Nanopore reads')
-    required_settings.add_argument('-a', '--assembly_fasta_filepath', required=True, type=str,
+    required_settings.add_argument('-a', '--assembly_fasta_filepath', metavar='PATH', required=True, type=str,
                                    help='Contigs to be end-repaired')
-    required_settings.add_argument('-i', '--assembly_info_filepath', required=True, type=str,
+    required_settings.add_argument('-i', '--assembly_info_filepath', metavar='PATH', required=True, type=str,
                                    help='assembly_info.txt file from Flye showing which assembled contigs are circular '
                                         'vs. linear (or a custom guide file; see -c below)')
-    required_settings.add_argument('-o', '--output_dir', required=True, type=str, help='Output directory path')
+    required_settings.add_argument('-o', '--output_dir', metavar='PATH', required=True, type=str,
+                                   help='Output directory path')
 
-    read_settings.add_argument('-f', '--flye_read_mode', required=False, default='nano-hq',
+    read_settings.add_argument('-f', '--flye_read_mode', metavar='MODE', required=False, default='nano-hq',
                                choices=['nano-hq', 'nano-raw'],
                                help='Type of long read reads provided by -l, to be used for reassembly by Flye. See '
                                     'details on these settings in the Flye documentation. (default: nano-hq)')
-    read_settings.add_argument('-F', '--flye_read_error', required=False, default=0, type=float,
+    read_settings.add_argument('-F', '--flye_read_error', metavar='FRACTION', required=False, default=0, type=float,
                                help='Expected error rate of input reads, expressed as proportion (e.g., 0.03). '
                                     'If "0", then have flye set the read error automatically (default: 0)')
 
-    merge_settings.add_argument('-I', '--circlator_min_id', required=False, default=99, type=float,
+    merge_settings.add_argument('-I', '--circlator_min_id', metavar='PERCENT', required=False, default=99, type=float,
                                 help='Percent identity threshold for circlator merge (default: 99)')
-    merge_settings.add_argument('-L', '--circlator_min_length', required=False, default=10000, type=int,
-                                help='Minimum required overlap (bp) between original and merge contigs '
-                                     '(default: 10000)')
-    merge_settings.add_argument('-e', '--circlator_ref_end', required=False, default=100, type=int,
+    merge_settings.add_argument('-L', '--circlator_min_length', metavar='LENGTH', required=False, default=10000,
+                                type=int, help='Minimum required overlap (bp) between original and merge contigs '
+                                               '(default: 10000)')
+    merge_settings.add_argument('-e', '--circlator_ref_end', metavar='LENGTH', required=False, default=100, type=int,
                                 help='Minimum distance (bp) between end of original contig and nucmer hit '
                                      '(default: 100)')
-    merge_settings.add_argument('-E', '--circlator_reassemble_end', required=False, default=100, type=int,
-                                help='Minimum distance (bp) between end of merge contig and nucmer hit '
-                                     '(default: 100)')
+    merge_settings.add_argument('-E', '--circlator_reassemble_end', metavar='LENGTH', required=False, default=100,
+                                type=int, help='Minimum distance (bp) between end of merge contig and nucmer hit '
+                                               '(default: 100)')
 
     workflow_settings.add_argument('-k', '--keep_going_with_failed_contigs', required=False, action='store_true',
                                    help='Set this flag to continue running this script even if some contigs '
@@ -903,19 +833,13 @@ def parse_cli(subparsers=None):
                                         'first column is the contig names; second column is the status of the contigs, '
                                         'either "circular" or "linear". Any contig names not in this file will be '
                                         'dropped by the script!')
-    workflow_settings.add_argument('-O', '--overwrite', required=False, action='store_true',
-                                   help='Set this flag to overwrite an existing output directory and its contents; by '
-                                        'default this code will throw an error if the output directory already exists. '
-                                        'By setting this flag, you risk erasing old data and/or running into errors.')
-    workflow_settings.add_argument('-T', '--length_thresholds', required=False,
+    workflow_settings.add_argument('-T', '--length_thresholds', metavar='LIST', required=False,
                                    default='100000,75000,50000,25000,5000,2500,1000', type=str,
                                    help='Comma-separated list of length thresholds for reassembly around the contig '
                                         'ends (bp) (default: 100000,75000,50000,25000,5000,2500,1000)')
-    workflow_settings.add_argument('-t', '--threads', required=False, default=1, type=int,
+    workflow_settings.add_argument('-t', '--threads', metavar='JOBS', required=False, default=1, type=int,
                                    help='Number of processors threads to use (default: 1)')
-    workflow_settings.add_argument('-m', '--threads_mem', required=False, default=1, type=float,
+    workflow_settings.add_argument('-m', '--threads_mem', metavar='GB', required=False, default=1, type=float,
                                    help='Memory (GB) to use **per thread** for samtools sort (default: 1)')
-    workflow_settings.add_argument('-v', '--verbose', required=False, action='store_true',
-                                   help='Enable verbose logging')
 
-    return parser
+    return subparser
