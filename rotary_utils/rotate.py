@@ -44,10 +44,10 @@ def main(args):
     # Check that the user has provided OK instructions
     check_rotate_args(args)
 
-    # TODO: improve error handling if a string is provided instead of a real length
+    # TODO: improve error handling if a bad comma-separated list is provided
     if args.sequence_names is not None:
-        sequence_names = [int(x) for x in args.sequence_names.split(',')]
-        logger.debug(f'User provided a list of {len(args.sequence_names)} sequence IDs to search for rotation.')
+        sequence_names = args.sequence_names.split(',')
+        logger.debug(f'User provided a list of {len(sequence_names)} sequence IDs to search for rotation.')
     else:
         sequence_names = None
 
@@ -340,7 +340,8 @@ def rotate_sequences_wf(fasta_filepath: str, output_filepath: str, rotate_type: 
 
             else:
                 # Just pass the record through without rotation
-                record_rotated = rotate_sequence_to_position(record, rotate_position=0,
+                rotate_value=0
+                record_rotated = rotate_sequence_to_position(record, rotate_position=rotate_value,
                                                              strip_description=strip_descriptions)
 
             # Get values for output report
@@ -399,7 +400,7 @@ def subparse_cli(subparsers, parent_parser: argparse.ArgumentParser = None):
                                  help='Base pair position to rotate all sequences to (i.e., number of bases to rotate '
                                       'counter-clockwise). To specify a unique rotate position for each sequence, see '
                                       '-t). Incompatible with -m, -P, -t, and -T.')
-    rotate_settings.add_argument('-P', '--rotate_fraction', metavar='INT', required=False, type=int,
+    rotate_settings.add_argument('-P', '--rotate_fraction', metavar='FLOAT', required=False, type=float,
                                  help='Fractional position to rotate all sequences to, counter-clockwise. For example, '
                                       '0.3 means to rotate all contigs counter-clockwise to 30 percent of their total '
                                       'length). To specify a unique fractional position for each sequence, see -T). '
