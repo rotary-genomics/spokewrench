@@ -39,37 +39,42 @@ the ends of circular contigs produced by this assembly tool.
 
 Help menu (`rotary-utils repair -h`):
 ```commandline
-usage: rotary-utils repair [-h] -l LONG_READ_FILEPATH -a ASSEMBLY_FASTA_FILEPATH -i ASSEMBLY_INFO_FILEPATH -o OUTPUT_DIR [-f {nano-hq,nano-raw}] [-F FLYE_READ_ERROR]
-                           [-I CIRCLATOR_MIN_ID] [-L CIRCLATOR_MIN_LENGTH] [-e CIRCLATOR_REF_END] [-E CIRCLATOR_REASSEMBLE_END] [-k] [-c] [-O] [-T LENGTH_THRESHOLDS]
-                           [-t THREADS] [-m THREADS_MEM] [-v]
+usage: rotary-utils repair [-h] [-lf PATH] [-O] [-v] -l PATH -a PATH -i PATH -o PATH [-f MODE] [-F FRACTION] [-I PERCENT] [-L LENGTH] [-e LENGTH] [-E LENGTH] [-k] [-c]
+                           [-T LIST] [-t JOBS] [-m GB]
 
 optional arguments:
   -h, --help            show this help message and exit
 
+Basic config settings:
+  -lf PATH, --logfile PATH
+                        Log filepath (default: None)
+  -O, --overwrite       Overwrite existing files/directories. By setting this flag, you risk erasing old data.
+  -v, --verbose         Enable verbose logging
+
 Required:
-  -l LONG_READ_FILEPATH, --long_read_filepath LONG_READ_FILEPATH
+  -l PATH, --long_read_filepath PATH
                         QC-passing Nanopore reads
-  -a ASSEMBLY_FASTA_FILEPATH, --assembly_fasta_filepath ASSEMBLY_FASTA_FILEPATH
+  -a PATH, --assembly_fasta_filepath PATH
                         Contigs to be end-repaired
-  -i ASSEMBLY_INFO_FILEPATH, --assembly_info_filepath ASSEMBLY_INFO_FILEPATH
+  -i PATH, --assembly_info_filepath PATH
                         assembly_info.txt file from Flye showing which assembled contigs are circular vs. linear (or a custom guide file; see -c below)
-  -o OUTPUT_DIR, --output_dir OUTPUT_DIR
+  -o PATH, --output_dir PATH
                         Output directory path
 
 Input read options:
-  -f {nano-hq,nano-raw}, --flye_read_mode {nano-hq,nano-raw}
+  -f MODE, --flye_read_mode MODE
                         Type of long read reads provided by -l, to be used for reassembly by Flye. See details on these settings in the Flye documentation. (default: nano-hq)
-  -F FLYE_READ_ERROR, --flye_read_error FLYE_READ_ERROR
+  -F FRACTION, --flye_read_error FRACTION
                         Expected error rate of input reads, expressed as proportion (e.g., 0.03). If "0", then have flye set the read error automatically (default: 0)
 
 Merge options:
-  -I CIRCLATOR_MIN_ID, --circlator_min_id CIRCLATOR_MIN_ID
+  -I PERCENT, --circlator_min_id PERCENT
                         Percent identity threshold for circlator merge (default: 99)
-  -L CIRCLATOR_MIN_LENGTH, --circlator_min_length CIRCLATOR_MIN_LENGTH
+  -L LENGTH, --circlator_min_length LENGTH
                         Minimum required overlap (bp) between original and merge contigs (default: 10000)
-  -e CIRCLATOR_REF_END, --circlator_ref_end CIRCLATOR_REF_END
+  -e LENGTH, --circlator_ref_end LENGTH
                         Minimum distance (bp) between end of original contig and nucmer hit (default: 100)
-  -E CIRCLATOR_REASSEMBLE_END, --circlator_reassemble_end CIRCLATOR_REASSEMBLE_END
+  -E LENGTH, --circlator_reassemble_end LENGTH
                         Minimum distance (bp) between end of merge contig and nucmer hit (default: 100)
 
 Workflow options:
@@ -81,13 +86,61 @@ Workflow options:
                         the assembly_info.txt file output by Flye (default), as your argument to -i. The custom file must have the following format: no headers; tab-separated;
                         first column is the contig names; second column is the status of the contigs, either "circular" or "linear". Any contig names not in this file will be
                         dropped by the script!
-  -O, --overwrite       Set this flag to overwrite an existing output directory and its contents; by default this code will throw an error if the output directory already
-                        exists. By setting this flag, you risk erasing old data and/or running into errors.
-  -T LENGTH_THRESHOLDS, --length_thresholds LENGTH_THRESHOLDS
+  -T LIST, --length_thresholds LIST
                         Comma-separated list of length thresholds for reassembly around the contig ends (bp) (default: 100000,75000,50000,25000,5000,2500,1000)
-  -t THREADS, --threads THREADS
+  -t JOBS, --threads JOBS
                         Number of processors threads to use (default: 1)
-  -m THREADS_MEM, --threads_mem THREADS_MEM
+  -m GB, --threads_mem GB
                         Memory (GB) to use **per thread** for samtools sort (default: 1)
+```
+
+### `rotate`
+Support module for rotating DNA sequences in FastA files.
+
+Help menu (`rotary-utils rotate -h`):
+```commandline
+usage: rotary-utils rotate [-h] [-lf PATH] [-O] [-v] -i PATH -o PATH [-m] [-p INT] [-P FLOAT] [-t PATH] [-T PATH] [-n LIST] [-r PATH] [-s]
+
+optional arguments:
+  -h, --help            show this help message and exit
+
+Basic config settings:
+  -lf PATH, --logfile PATH
+                        Log filepath (default: None)
+  -O, --overwrite       Overwrite existing files/directories. By setting this flag, you risk erasing old data.
   -v, --verbose         Enable verbose logging
+
+Required:
+  -i PATH, --input_fasta PATH
+                        Input fasta file
+  -o PATH, --output_fasta PATH
+                        Output fasta file. Note that all input sequences will always be written to output, even if only a subset of sequences are selected for rotate
+                        operations.
+
+Rotate options:
+  -m, --midpoint        Rotate all sequences to their midpoint. (Incompatible with -p, -P, -t, and -T.)
+  -p INT, --rotate_position INT
+                        Number of base positions to rotate all sequences by, in the counter-clockwise direction. To specify a unique rotate position for each sequence, see
+                        -t). Incompatible with -m, -P, -t, and -T.
+  -P FLOAT, --rotate_fraction FLOAT
+                        Fractional position to rotate all sequences to, counter-clockwise. For example, 0.3 means to rotate all contigs counter-clockwise to 30 percent of
+                        their total length). To specify a unique fractional position for each sequence, see -T). Incompatible with -m, -p, -t, and -T.
+  -t PATH, --rotate_position_table PATH
+                        Path to a tab-separated file that contains the desired amount to rotate each sequence by, in base pair position numbers, in the counter-clockwise
+                        direction. Columns (with headers) should be "sequence_id" and "rotate_bp". Only sequences specified in the table will be rotated, although all
+                        sequences in the input file will be written to the output file. Incompatible with -m, -p, -P, and -T.
+  -T PATH, --rotate_fraction_table PATH
+                        Path to a tab-separated file that contains the desired amount to rotate each sequence by, as a fraction of total sequence length, in the counter-
+                        clockwise direction. Columns (with headers) should be "sequence_id" and "rotate_fraction". Only sequences specified in the table will be rotated,
+                        although all sequences in the input file will be written to the output file. Incompatible with -m, -p, -P, and -t.
+  -n LIST, --sequence_names LIST
+                        Sequences to be rotated (comma-separated list of IDs). Rotate operations will only be applied to these sequences, although all sequences in the input
+                        file will be written to output. If used with -t or -T, the sequences listed in the table will be further subset to those that are also in the provided
+                        list of sequence names.
+  -r PATH, --output_report PATH
+                        Path to write an optional tab-separated report file that shows how sequences were rotated.
+
+Workflow options:
+  -s, --strip_descriptions
+                        Strip descriptions off FastA headers (i.e., any text after the first whitespace in each header)
 ```
