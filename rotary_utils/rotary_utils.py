@@ -67,7 +67,7 @@ def main():
     # Select the sub-command to run.
     if hasattr(args, 'rotate'):
         rotate_main(args)
-    if hasattr(args, 'repair'):
+    elif hasattr(args, 'repair'):
         repair_main(args)
     else:
         parser.print_help()

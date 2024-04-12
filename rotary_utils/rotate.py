@@ -25,7 +25,7 @@ def main(args):
     """
 
     # Startup messages
-    logger.info('Running ' + os.path.basename(sys.argv[0]))
+    logger.debug('Running ' + os.path.basename(sys.argv[0]))
     logger.debug('### SETTINGS ###')
     logger.debug(f'Input FastA: {args.input_fasta}')
     logger.debug(f'Output FastA: {args.output_fasta}')
@@ -86,9 +86,10 @@ def main(args):
 
     # Save the rotation report if desired
     if args.output_report is not None:
+        logger.debug(f'Writing rotation report to "{args.output_report}"')
         report.to_csv(args.output_report, sep='\t', index=False)
 
-    logger.info(os.path.basename(sys.argv[0]) + ': done.')
+    logger.debug(os.path.basename(sys.argv[0]) + ': done.')
 
 
 def check_rotate_args(args):
@@ -112,13 +113,15 @@ def check_rotate_args(args):
     """
 
     # 1. Check rotate value arguments
-    rotate_value_arguments = [args.midpoint, args.rotate_position, args.rotate_fraction, args.rotate_position_table,
-                              args.rotate_fraction_table]
-
     defined_arguments = 0
-    for argument in rotate_value_arguments:
+    for argument in [args.rotate_position, args.rotate_fraction, args.rotate_position_table,
+                     args.rotate_fraction_table]:
         if argument is not None:
             defined_arguments = defined_arguments + 1
+
+    # Special case for boolean midpoint setting
+    if args.midpoint is True:
+        defined_arguments = defined_arguments + 1
 
     if defined_arguments > 1:
         raise RuntimeError('More than one of -m, -p, -P, -t, and -T were specified in the command line, but only one '
@@ -126,7 +129,7 @@ def check_rotate_args(args):
     elif defined_arguments == 0:
         raise RuntimeError('None of -m, -p, -P, -t, and -T were specified in the command line, but you must select one '
                            'of these to perform a rotate run.')
-    elif defined_arguments != 0:
+    elif defined_arguments != 1:
         raise RuntimeError('Ran into an issue processing the -m, -p, -P, -t, and -T arguments in the CLI.')
 
     # 2. Check output files
@@ -187,13 +190,15 @@ def avoid_gene_collision():
     pass
 
 
-def rotate_sequence_to_position(sequence_record: SeqIO.SeqRecord, rotate_position: int, strip_description: bool = True):
+def rotate_sequence_to_position(sequence_record: SeqIO.SeqRecord, rotate_position: int, strip_description: bool = True,
+                                quiet: bool = False):
     """
     Rotates an input (circular) sequence to a specified position.
 
     :param sequence_record: BioPython SeqRecord object containing the sequence to rotate
     :param rotate_position: new start position for the sequence after rotation (if 0, sequence is not rotated)
     :param strip_description: boolean of whether to trim off the read description in the output sequences
+    :param quiet: run without logger debug outputs (for compatibility with rotate_sequence_to_fraction)
     :return: BioPython SeqRecord object of the rotated FastA file
     """
 
@@ -208,10 +213,12 @@ def rotate_sequence_to_position(sequence_record: SeqIO.SeqRecord, rotate_positio
                        f'({sequence_length} bp), so the sequence will effectively not be rotated.')
 
     elif rotate_position < 0:
-        logger.debug(f'Desired rotate position ({rotate_position}) is less than 0.')
+        logger.error(f'Desired rotate position ({rotate_position}) is less than 0.')
         raise RuntimeError
 
-    logger.debug(f'Rotating sequence to start at position: {rotate_position}')
+    if quiet is False:
+        logger.debug(f'{sequence_record.name} ({sequence_length} bp): rotating to start at position: {rotate_position}')
+
     sequence_rotated_front = sequence_record.seq[rotate_position:sequence_length]
     sequence_rotated_back = sequence_record.seq[0:rotate_position]
     sequence_rotated = sequence_rotated_front + sequence_rotated_back
@@ -245,10 +252,11 @@ def rotate_sequence_to_fraction(sequence_record: SeqIO.SeqRecord, rotate_fractio
 
     else:
         rotate_position = math.floor(sequence_length * rotate_fraction)
-        logger.debug(f'Rotating contig to fraction {rotate_fraction} = position {rotate_position} bp')
+        logger.debug(f'{sequence_record.name}: rotating to {rotate_fraction} * {sequence_length} bp = '
+                     f'{rotate_position} bp')
 
     sequence_record = rotate_sequence_to_position(sequence_record, rotate_position=rotate_position,
-                                                  strip_description=strip_description)
+                                                  strip_description=strip_description, quiet=True)
 
     return sequence_record
 
@@ -388,10 +396,11 @@ def subparse_cli(subparsers, parent_parser: argparse.ArgumentParser = None):
     rotate_settings.add_argument('-p', '--rotate_position', metavar='INT', required=False, type=int,
                                  help='Base pair position to rotate all sequences to (to specify a unique rotate '
                                       'position for each sequence, see -t). Incompatible with -m, -P, -t, and -T.')
-    rotate_settings.add_argument('-P', '--rotate_fraction', metavar='FRACTION', required=False, type=float,
-                                 help='Fractional position to rotate sequences to (e.g., 0.3 to rotate 30% of total '
-                                      'length). To specify a unique fractional position to rotate for each sequence, '
-                                      'see -T). Incompatible with -m, -p, -t, and -T.')
+    rotate_settings.add_argument('-P', '--rotate_fraction', metavar='INT', required=False, type=int,
+                                 help='Fractional position to rotate all sequences to (for example, 0.3 means to '
+                                      'rotate all contigs to 30 percent of their total length). To specificy a unique '
+                                      'fractional position for each sequence, see -T). Incompatible with -m, -p, -t, '
+                                      'and -T.')
     rotate_settings.add_argument('-t', '--rotate_position_table', metavar='PATH', required=False, type=str,
                                  help='Path to a tab-separated file that contains the exact rotate position of '
                                       'each sequence. Columns (with headers) should be "sequence_id" and '
