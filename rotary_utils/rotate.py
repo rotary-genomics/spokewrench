@@ -226,49 +226,41 @@ def subparse_cli(subparsers, parent_parser: argparse.ArgumentParser = None):
     rotate_settings = subparser.add_argument_group('Rotate options')
     workflow_settings = subparser.add_argument_group('Workflow options')
 
-    required_settings.add_argument('-i', '--input_fasta', required=True, type=str,
+    required_settings.add_argument('-i', '--input_fasta', metavar='PATH', required=True, type=str,
                                    help='Input contig fasta file')
-    required_settings.add_argument('-o', '--output_fasta', required=True, type=str,
+    required_settings.add_argument('-o', '--output_fasta', metavar='PATH', required=True, type=str,
                                    help='Output contig fasta file. (Note that all input contigs will always be '
                                         'written to output. If you select no rotate options, the input contigs will '
                                         'be output with no sequence changes.)')
 
     rotate_settings.add_argument('-m', '--midpoint', required=False, action='store_true',
                                  help='Rotate all contigs to their midpoint (overrides -p, -P, -t, and -T)')
-    rotate_settings.add_argument('-p', '--rotate_position', required=False, type=int,
+    rotate_settings.add_argument('-p', '--rotate_position', metavar='INT', required=False, type=int,
                                  help='Base pair position to rotate contigs to (to specify a unique rotate '
                                       'position for each contig, see -t). Incompatible with -P.')
-    rotate_settings.add_argument('-t', '--rotate_position_table', required=False, type=str,
+    rotate_settings.add_argument('-t', '--rotate_position_table', metavar='PATH', required=False, type=str,
                                  help='Path to a tab-separated file that contains the exact rotate position of '
-                                      'each contig. Columns (with headers) should be "contig_id" and "rotate_position". '
-                                      'Overrides -p and -P. Only contigs specified in the table will be rotated, although '
-                                      'all contigs in the input file will be written to the output file. Incompatible with '
-                                      '-T.')
-    rotate_settings.add_argument('-P', '--rotate_proportion', required=False, type=float,
-                                 help='Fractional position to rotate contigs to (e.g., 0.3 to rotate 30% of total length). '
-                                      'To specify a unique fractional position to rotate for each contig, see -T). '
-                                      'Incompatible with -p.')
-    rotate_settings.add_argument('-T', '--rotate_proportion_table', required=False, type=str,
-                                 help='Path to a tab-separated file that contains the exact fractional positions to rotate '
-                                      'each contig to. Columns (with headers) should be "contig_id" and "rotate_proportion". '
-                                      'Overrides -p and -P. Only contigs specified in the table will be rotated, although '
-                                      'all contigs in the input file will be written to the output file. Incompatible '
-                                      'with -t.')
-    rotate_settings.add_argument('-c', '--contig_names', required=False, type=str,
+                                      'each contig. Columns (with headers) should be "contig_id" and '
+                                      '"rotate_position". Overrides -p and -P. Only contigs specified in the table '
+                                      'will be rotated, although all contigs in the input file will be written to the '
+                                      'output file. Incompatible with -T.')
+    rotate_settings.add_argument('-P', '--rotate_proportion', metavar='FRACTION', required=False, type=float,
+                                 help='Fractional position to rotate contigs to (e.g., 0.3 to rotate 30% of total '
+                                      'length). To specify a unique fractional position to rotate for each contig, see '
+                                      '-T). Incompatible with -p.')
+    rotate_settings.add_argument('-T', '--rotate_proportion_table', metavar='PATH', required=False, type=str,
+                                 help='Path to a tab-separated file that contains the exact fractional positions to '
+                                      'rotate each contig to. Columns (with headers) should be "contig_id" and '
+                                      '"rotate_proportion". Overrides -p and -P. Only contigs specified in the table '
+                                      'will be rotated, although all contigs in the input file will be written to the '
+                                      'output file. Incompatible with -t.')
+    rotate_settings.add_argument('-c', '--contig_names', metavar='LIST', required=False, type=str,
                                  help='Contigs to be rotated (comma-separated list of IDs). '
                                       'Rotate operations will only be applied to these contigs, '
                                       'although all contigs in the input file will be written to output. '
                                       'If used with -t or -T, the contigs listed in the table will be further subset '
                                       'to those that are also in the provided list of contig names.')
-    rotate_settings.add_argument('-r', '--output_report', required=False, type=str,
+    rotate_settings.add_argument('-r', '--output_report', metavar='PATH', required=False, type=str,
                                  help='Path to write an optional report file that shows how contigs were rotated')
-    rotate_settings.add_argument('-b', '--base_start_position', required=False, default=1, type=int,
-                                 choices=[0, 1],
-                                 help='Whether the first base position on a contig is considered as 1 (default) or 0.')
-
-    workflow_settings.add_argument('-t', '--threads', required=False, default=1, type=int,
-                                   help='Number of processors threads to use (default: 1)')
-    workflow_settings.add_argument('-v', '--verbose', required=False, action='store_true',
-                                   help='Enable verbose logging to screen')
 
     return subparser
