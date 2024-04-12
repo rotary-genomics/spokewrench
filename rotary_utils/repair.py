@@ -13,7 +13,7 @@ import sys
 import pandas as pd
 from Bio import SeqIO
 
-from rotary_utils.utils import check_dependency, run_pipeline_subcommand, set_write_mode
+from rotary_utils.utils import check_dependencies, run_pipeline_subcommand, set_write_mode
 
 # GLOBAL VARIABLES
 DEPENDENCY_NAMES = ['flye', 'minimap2', 'samtools', 'circlator']
@@ -26,13 +26,6 @@ def main(args):
     Runs the end repair workflow
     :param args: arguments parsed by parse_cli()
     """
-
-    # Check dependencies
-    dependency_paths = []
-    for dependency_name in DEPENDENCY_NAMES:
-        dependency_paths.append(check_dependency(dependency_name))
-
-    dependency_dict = dict(zip(DEPENDENCY_NAMES, dependency_paths))
 
     # Parse some command line inputs further
     assembly_info_type = 'custom' if args.custom_assembly_info_file is True else 'flye'
@@ -48,6 +41,8 @@ def main(args):
 
     # Startup messages
     logger.info('Running ' + os.path.basename(sys.argv[0]))
+    logger.debug('### DEPENDENCIES ###')
+    check_dependencies(dependency_names=DEPENDENCY_NAMES)
     logger.debug('### SETTINGS ###')
     logger.debug(f'Long read filepath: {args.long_read_filepath}')
     logger.debug(f'Assembly FastA filepath: {args.assembly_fasta_filepath}')
@@ -67,9 +62,6 @@ def main(args):
     logger.debug(f'Threads: {args.threads}')
     logger.debug(f'Memory per thread (GB = MB): {args.threads_mem} = {threads_mem_mb}')
     logger.debug(f'Verbose logging: {args.verbose}')
-    logger.debug('### DEPENDENCIES ###')
-    for key, value in dependency_dict.items():
-        logger.debug(f'{key}: {value}')
     logger.debug('################')
 
     run_end_repair(args.long_read_filepath, args.assembly_fasta_filepath, args.assembly_info_filepath,

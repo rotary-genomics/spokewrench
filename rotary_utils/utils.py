@@ -76,6 +76,24 @@ def check_dependency(dependency_name: str):
     return dependency_path
 
 
+def check_dependencies(dependency_names: list):
+    """
+    For each provided dependency name, checks if the dependency exists and gets the path.
+    :param dependency_names: a list of names of dependencies to check
+    :return: a dictionary of dependency names and dependency paths
+    """
+
+    dependency_paths = []
+    for dependency_name in dependency_names:
+        dependency_path = check_dependency(dependency_name)
+        dependency_paths.append(dependency_path)
+        logger.debug(f'{dependency_name}: {dependency_path}')
+
+    dependency_dict = dict(zip(dependency_names, dependency_paths))
+
+    return dependency_dict
+
+
 def set_write_mode(append_log: bool):
     """
     Converts the boolean append_log to 'w' or 'a' write modes
