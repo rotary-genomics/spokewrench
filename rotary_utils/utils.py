@@ -10,6 +10,8 @@ import shlex
 import shutil
 import subprocess
 
+from Bio import SeqIO
+
 logger = logging.getLogger(__name__)
 
 
@@ -177,9 +179,24 @@ def run_pipeline_subcommand(command_args, stdin=None, stdout=None, stderr=None, 
     return subprocess.run(command_args, check=check, input=stdin, stdout=stdout, stderr=stderr, text=text)
 
 
-def load_fasta_sequences(fasta_filepath: str, maximum_allowed_sequences: int = 0):
+def load_fasta_sequences(fasta_filepath: str):
     """
-    Loads FastA sequence records as BioPython SeqRecord objects.
+    Loads an input FastA file as a generator
+
+    :param fasta_filepath: Path to the FastA file (unzipped) to load
+    :return: generator of a SeqRecord object for the loaded sequences
+    """
+
+    with open(fasta_filepath) as fasta_handle:
+        for record in SeqIO.parse(fasta_handle, 'fasta'):
+            yield record
+
+
+def load_all_fasta_sequences(fasta_filepath: str, maximum_allowed_sequences: int = 0):
+    """
+    Loads FastA sequence records as BioPython SeqRecord objects. Rather than yielding a generator as in
+    load_fasta_sequences(), this function returns a list of all loaded sequence records in RAM.
+
     :param fasta_filepath: Path to the FastA file (unzipped) to load
     :param maximum_allowed_sequences: Maximum number of sequences allowed in the input file to load without error.
                                       If 0, then no sequence number limit is applied.
@@ -189,17 +206,16 @@ def load_fasta_sequences(fasta_filepath: str, maximum_allowed_sequences: int = 0
     record_count = 0
     sequence_records = []
 
-    with open(fasta_filepath) as fasta_handle:
-        for record in SeqIO.parse(fasta_handle, 'fasta'):
+    for record in load_fasta_sequences(fasta_filepath):
 
-            if (record_count < maximum_allowed_sequences) | (maximum_allowed_sequences == 0):
-                sequence_records.append(record)
+        if (record_count < maximum_allowed_sequences) | (maximum_allowed_sequences == 0):
+            sequence_records.append(record)
 
-            elif record_count >= maximum_allowed_sequences:
-                logger.error(f'Input file {fasta_filepath} contains more than the maximum record limit of'
-                             f'{maximum_allowed_sequences} sequences.')
-                raise RuntimeError
+        elif record_count >= maximum_allowed_sequences:
+            logger.error(f'Input file {fasta_filepath} contains more than the maximum record limit of'
+                         f'{maximum_allowed_sequences} sequences.')
+            raise RuntimeError
 
-            record_count = record_count + 1
+        record_count = record_count + 1
 
     return sequence_records

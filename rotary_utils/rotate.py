@@ -68,7 +68,7 @@ def avoid_gene_collision():
     pass
 
 
-def rotate_sequence(sequence_record: SeqIO.SeqRecord, rotate_position: int, strip_description: bool = True):
+def rotate_sequence_to_position(sequence_record: SeqIO.SeqRecord, rotate_position: int, strip_description: bool = True):
     """
     Rotates an input (circular) sequence to a specified position.
 
@@ -126,8 +126,8 @@ def rotate_sequence_to_fraction(sequence_record: SeqIO.SeqRecord, rotate_fractio
     else:
         rotate_position = math.floor(sequence_length * rotate_fraction)
 
-    sequence_record = rotate_sequence(sequence_record, rotate_position=rotate_position,
-                                      strip_description=strip_description)
+    sequence_record = rotate_sequence_to_position(sequence_record, rotate_position=rotate_position,
+                                                  strip_description=strip_description)
 
     return sequence_record
 
@@ -146,57 +146,60 @@ def rotate_sequence_to_midpoint(sequence_record: SeqIO.SeqRecord, strip_descript
     return sequence_record
 
 
-def rotate_sequences_wf(fasta_filepath: str, output_filepath: str, rotate_positions: dict, append: bool = False,
-                        strip_descriptions: bool = True):
+def rotate_sequences_wf(fasta_filepath: str, output_filepath: str, rotate_type: str, rotate_values: dict,
+                        append: bool = False, strip_descriptions: bool = True):
     """
     Rotates all (circular) sequences in an input FastA file to a specified position.
 
-    :param fasta_filepath: Path to the FastA file (unzipped) to load. Assumes all entries are circular.
+    :param fasta_filepath: Path to the FastA file (unzipped) to load
     :param output_filepath: path where the FastA file containing the output rotated contig should be saved
-    :param rotate_positions: dict of contig names and new start positions for the contigs after rotation
-                             (if 0, contig is not rotated)
+    :param rotate_type: whether the rotation is a 'position' based or a 'fraction' based rotation.
+    :param rotate_values: dict of contig names (keys) and the desired rotation position or fraction for each contig
+                          (values). If rotate_type if 'position', expects the values to be the new start position for
+                          each contigs after rotation. If rotate_type if 'fraction', expects the values to be the
+                          fraction (or proportion) of total contig length to rotate. (If 0, the contig is not rotated.)
     :param append: whether to append the output FastA onto an existing file (True) or overwrite (False)
     :param strip_descriptions: boolean of whether to trim off the read description in the output sequences
     :return: writes file to disk
     """
 
-    sequence_records = load_fasta_sequences(fasta_filepath)
-
-    sequence_records_rotated = []
-    for record in sequence_records:
-        sequence_record_rotated = rotate_sequence(record, rotate_position=rotate_positions[record.name],
-                                                  strip_description=strip_descriptions)
-        sequence_records_rotated.append(sequence_record_rotated)
-
     write_mode = set_write_mode(append)
     with open(output_filepath, write_mode) as output_handle:
-        for record in sequence_records_rotated:
-            SeqIO.write(record, output_handle, 'fasta')
+        for record in load_fasta_sequences(fasta_filepath):
+
+            if rotate_type == 'position':
+                record_rotated = rotate_sequence_to_position(record, rotate_position=rotate_values[record.name],
+                                                             strip_description=strip_descriptions)
+            elif rotate_type == 'fraction':
+                record_rotated = rotate_sequence_to_fraction(record, rotate_fraction=rotate_values[record.name],
+                                                             strip_description=strip_descriptions)
+            else:
+                raise ValueError(f'Expected "position" or "fraction", but hot {rotate_type}')
+
+            SeqIO.write(record_rotated, output_handle, 'fasta')
 
 
-def rotate_sequences_to_midpoint_wf(fasta_filepath: str, output_filepath: str, append: bool = False,
-                                    strip_descriptions: bool = True):
+def rotate_all_sequences_to_same_fraction_wf(fasta_filepath: str, output_filepath: str, rotate_fraction: float,
+                                             append: bool = False, strip_descriptions: bool = True):
     """
-    Rotates all (circular) sequences in an input FastA file to their midpoint.
+    Rotates all sequences in an input FastA file to a desired fraction, assuming they are circular.
 
     :param fasta_filepath: Path to the FastA file (unzipped) to load. Assumes all entries are circular.
     :param output_filepath: path where the FastA file containing the output rotated contig should be saved
+    :param rotate_fraction: the fraction of the sequence length to rotate each sequence to. Set to 0.5 to rotate to
+                            the midpoint of each sequence.
     :param append: whether to append the output FastA onto an existing file (True) or overwrite (False)
     :param strip_descriptions: boolean of whether to trim off the read description in the output sequences
     :return: writes file to disk
     """
 
-    sequence_records = load_fasta_sequences(fasta_filepath)
-
-    sequence_records_rotated = []
-    for record in sequence_records:
-        sequence_record_rotated = rotate_sequence_to_midpoint(record, strip_description=strip_descriptions)
-        sequence_records_rotated.append(sequence_record_rotated)
-
     write_mode = set_write_mode(append)
     with open(output_filepath, write_mode) as output_handle:
-        for record in sequence_records_rotated:
-            SeqIO.write(record, output_handle, 'fasta')
+        for record in load_fasta_sequences(fasta_filepath):
+
+            record_rotated = rotate_sequence_to_fraction(record, rotate_fraction=rotate_fraction,
+                                                         strip_description=strip_descriptions)
+            SeqIO.write(record_rotated, output_handle, 'fasta')
 
 
 def subparse_cli(subparsers, parent_parser: argparse.ArgumentParser = None):
