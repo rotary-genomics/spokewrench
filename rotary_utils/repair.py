@@ -434,6 +434,44 @@ def stitch_all_contigs(circular_contig_tmp_fasta: str, bam_filepath: str, linkin
     return failed_contig_names
 
 
+class RepairPaths:
+    """
+    A class containing file paths that are used during the assembly repair process.
+    """
+
+    def __init__(self, output_dir):
+        self.linking_outdir_base = os.path.join(output_dir, 'contigs')
+        self.end_repaired_contigs_filepath = os.path.join(output_dir, 'repaired.fasta')
+        self.end_repair_status_filepath = os.path.join(output_dir, 'repaired_info.tsv')
+        self.verbose_logfile = os.path.join(output_dir, 'verbose.log')
+        self.bam_filepath = os.path.join(output_dir, 'long_read.bam')
+        self.circlator_logs = os.path.join(output_dir, 'circlator_logs')
+        self.contigs = os.path.join(output_dir, 'contigs')
+        self.circular_contig_tmp_fasta = os.path.join(self.linking_outdir_base, 'circular_input.fasta')
+
+
+class AssemblyInfo:
+    """
+    A class representing files paths containing info about the input assembly.
+    """
+
+    def __init__(self, assembly_fasta_filepath, assembly_info_filepath, assembly_info_type):
+        self.assembly_fasta_filepath = assembly_fasta_filepath
+        self.assembly_info_filepath = assembly_info_filepath
+        self.assembly_info_type = assembly_info_type
+
+
+class ContigInfo:
+    """
+    A class representing file paths containing info about the contigs of an assembly.
+    """
+    def __init__(self, circular_contig_names, failed_contig_names, linear_contig_names):
+        self.circular_contig_names = circular_contig_names
+        self.repaired_contig_names = list(set(circular_contig_names).difference(set(failed_contig_names)))
+        self.failed_contig_names = failed_contig_names
+        self.linear_contig_names = linear_contig_names
+
+
 def run_end_repair(long_read_filepath: str, assembly_fasta_filepath: str, assembly_info_filepath: str,
                    assembly_info_type: str, output_dir: str, length_thresholds: list, keep_failed_contigs: bool,
                    cli_tool_settings_dict: dict, threads: int, threads_mem_mb: int):
