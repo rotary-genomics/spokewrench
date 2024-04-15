@@ -15,6 +15,7 @@ from rotary_utils.utils import set_write_mode
 
 logger = logging.getLogger(__name__)
 
+
 def check_dependency(dependency_name: str):
     """
     Checks if a required shell dependency is present and tries to get its version.
@@ -55,38 +56,32 @@ def check_dependencies(dependency_names: list):
 
     return dependency_dict
 
+
 def get_dependency_version(dependency_name: str, log: bool = False):
     """
     Tries to get the version of a dependency based on the name of the dependency.
-
     :param dependency_name: name of the dependency
     :param log: is True, print a log of the shell commands used
     :return: version of the dependency. 'unknown' if no version can be parsed
     """
+    version_commands = {
+        'flye': ['flye', '--version'],
+        'minimap2': ['minimap2', '--version'],
+        'samtools': ['samtools', 'version'],
+        'circlator': ['circlator', 'version'],
+    }
 
-    if dependency_name == 'flye':
-        stdout = run_pipeline_subcommand(['flye', '--version'], stdout=subprocess.PIPE, text=True,
-                                         log=log).stdout
-        dependency_version = stdout.splitlines()[0]
+    if dependency_name in version_commands:
+        stdout = run_pipeline_subcommand(version_commands[dependency_name], stdout=subprocess.PIPE,
+                                         text=True, log=log).stdout
 
-    elif dependency_name == 'minimap2':
-        stdout = run_pipeline_subcommand(['minimap2', '--version'], stdout=subprocess.PIPE, text=True,
-                                         log=log).stdout
-        dependency_version = stdout.splitlines()[0]
-
-    elif dependency_name == 'samtools':
-        stdout = run_pipeline_subcommand(['samtools', 'version'], stdout=subprocess.PIPE, text=True,
-                                         log=log).stdout
-        dependency_version = stdout.splitlines()[0].split(' ')[1]
-
-    elif dependency_name == 'circlator':
-        stdout = run_pipeline_subcommand(['circlator', 'version'], stdout=subprocess.PIPE, text=True,
-                                         log=log).stdout
-        dependency_version = stdout.splitlines()[0]
-
+        # Special parsing is needed for samtools output.
+        if dependency_name == 'samtools':
+            dependency_version = stdout.splitlines()[0].split(' ')[1]
+        else:
+            dependency_version = stdout.splitlines()[0]
     else:
         dependency_version = 'unknown'
-
     return dependency_version
 
 
@@ -276,5 +271,3 @@ def check_circlator_success(circlator_logfile: str):
         raise error
 
     return result
-
-
