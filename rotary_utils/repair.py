@@ -13,9 +13,9 @@ import pandas as pd
 from Bio import SeqIO
 
 from rotary_utils.external import map_long_reads, subset_reads_from_bam, run_flye, run_circlator_merge, \
-    check_circlator_success
+    check_circlator_success, check_dependencies
 from rotary_utils.rotate import rotate_sequences_wf
-from rotary_utils.utils import check_dependencies, load_fasta_sequences
+from rotary_utils.utils import load_fasta_sequences
 
 # GLOBAL VARIABLES
 DEPENDENCY_NAMES = ['flye', 'minimap2', 'samtools', 'circlator']
@@ -92,7 +92,6 @@ def parse_assembly_info_file(assembly_info_filepath: str, info_type: str, return
         assembly_info = pd.read_csv(assembly_info_filepath, sep='\t')
         circular_contigs = assembly_info[assembly_info['circ.'] == 'Y'][['#seq_name', 'length', 'circ.']]
         linear_contigs = assembly_info[assembly_info['circ.'] == 'N'][['#seq_name', 'length', 'circ.']]
-
     elif info_type == 'custom':
         logger.debug('Loading custom format assembly info file')
         assembly_info = pd.read_csv(assembly_info_filepath, sep='\t', header=None)
@@ -264,7 +263,7 @@ def link_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: str, length_o
 
 
 def iterate_linking_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: str, linking_outdir: str,
-                                length_thresholds: list, cli_tool_settings_dict: dict,  verbose_logfile: str,
+                                length_thresholds: list, cli_tool_settings_dict: dict, verbose_logfile: str,
                                 threads: int = 1):
     """
     Iterate link_contig_ends to try to stitch the ends of a circular contig using multiple length thresholds.
@@ -495,105 +494,147 @@ def run_end_repair(long_read_filepath: str, assembly_fasta_filepath: str, assemb
     :param threads_mem_mb: memory in MB per thread (to use for samtools); must be an integer
     """
 
-    # Define core file names and directory structures
-    # These will be the files and folders in the main output directory:
-    end_repaired_contigs_filepath = os.path.join(output_dir, 'repaired.fasta')
-    end_repair_status_filepath = os.path.join(output_dir, 'repaired_info.tsv')
-    verbose_logfile = os.path.join(output_dir, 'verbose.log')
-    bam_filepath = os.path.join(output_dir, 'long_read.bam')
-    circlator_logdir = os.path.join(output_dir, 'circlator_logs')
-    linking_outdir_base = os.path.join(output_dir, 'contigs')
-    circular_contig_tmp_fasta = os.path.join(linking_outdir_base, 'circular_input.fasta')
+    repair_paths = RepairPaths(output_dir)
+    assembly_info = AssemblyInfo(assembly_fasta_filepath, assembly_info_filepath, assembly_info_type)
 
     # Get lists of circular contigs
-    circular_contig_names = parse_assembly_info_file(assembly_info_filepath, assembly_info_type, return_type='circular')
+    circular_contig_names = parse_assembly_info_file(assembly_info.assembly_info_filepath,
+                                                     assembly_info.assembly_info_type,
+                                                     return_type='circular')
 
     # No need to run the pipeline if there are no circular contigs
     if len(circular_contig_names) == 0:
-        logger.info('No circular contigs. Will copy the input file, repaired_info.tsv, and finish early.')
-        shutil.copyfile(assembly_fasta_filepath, end_repaired_contigs_filepath)
-        linear_contig_names = parse_assembly_info_file(assembly_info_filepath, assembly_info_type, return_type='linear')
-        repair_info = pd.DataFrame({'contig': linear_contig_names, 'circular': 'N', 'repaired': 'N'})
-        repair_info.to_csv(end_repair_status_filepath, sep='\t', index=False)
-        logger.info('Pipeline finished.')
-        sys.exit(0)
+        repair_no_circular_input_contigs(assembly_info, repair_paths)
 
     # Subset circular contigs from the full file and save to disk
-    os.makedirs(linking_outdir_base, exist_ok=True)
-    with open(circular_contig_tmp_fasta, 'w') as output_handle:
-        for record in subset_sequences(assembly_fasta_filepath, circular_contig_names):
+    os.makedirs(repair_paths.linking_outdir_base, exist_ok=True)
+    with open(repair_paths.circular_contig_tmp_fasta, 'w') as output_handle:
+        for record in subset_sequences(assembly_info.assembly_fasta_filepath, circular_contig_names):
             SeqIO.write(record, output_handle, 'fasta')
 
     # Start the main workflow from here:
     logger.info('Mapping reads to all contigs')
-    map_long_reads(contig_filepath=assembly_fasta_filepath, long_read_filepath=long_read_filepath,
-                   output_bam_filepath=bam_filepath, log_filepath=verbose_logfile,  append_log=False, threads=threads,
+    map_long_reads(contig_filepath=assembly_info.assembly_fasta_filepath, long_read_filepath=long_read_filepath,
+                   output_bam_filepath=repair_paths.bam_filepath, log_filepath=repair_paths.verbose_logfile,
+                   append_log=False, threads=threads,
                    threads_mem_mb=threads_mem_mb)
 
-    failed_contig_names = stitch_all_contigs(circular_contig_tmp_fasta, bam_filepath, linking_outdir_base,
-                                             end_repaired_contigs_filepath, length_thresholds, cli_tool_settings_dict,
-                                             verbose_logfile, threads)
-    os.makedirs(circlator_logdir, exist_ok=True)
-    shutil.move(os.path.join(linking_outdir_base, 'log_summary'), circlator_logdir)
+    failed_contig_names = stitch_all_contigs(repair_paths.circular_contig_tmp_fasta, repair_paths.bam_filepath,
+                                             repair_paths.linking_outdir_base,
+                                             repair_paths.end_repaired_contigs_filepath, length_thresholds,
+                                             cli_tool_settings_dict,
+                                             repair_paths.verbose_logfile, threads)
+
+    os.makedirs(repair_paths.circlator_logs, exist_ok=True)
+    shutil.move(os.path.join(repair_paths.linking_outdir_base, 'log_summary'), repair_paths.circlator_logs)
 
     # Check for contigs that could not be circularized
     if len(failed_contig_names) != 0:
-        if os.path.isdir(os.path.join(linking_outdir_base, 'troubleshooting')):
-            shutil.move(os.path.join(linking_outdir_base, 'troubleshooting'),
-                        os.path.join(output_dir, 'troubleshooting'))
-
-        if keep_failed_contigs is False:
-            logger.error(f'{len(failed_contig_names)} contigs could not be circularized. A partial output file '
-                         f'including successfully circularized contigs (and no linear contigs) is available at '
-                         f'{end_repaired_contigs_filepath} for debugging. Exiting with error status. See temporary '
-                         f'files and verbose logs for more details.')
-            sys.exit(1)
-
-        elif keep_failed_contigs is True:
-            logger.warning(f'{len(failed_contig_names)} contigs could not be circularized. The original (non-repaired) '
-                           f'versions of these contigs will be included in the final output file')
-            logger.warning(f'Names of contigs that could not be circularized: {", ".join(failed_contig_names)}')
-
-            # Get the non-repaired circular contigs and append them to the repaired contigs file
-            with open(end_repaired_contigs_filepath, 'a') as append_handle:
-                for record in subset_sequences(assembly_fasta_filepath, failed_contig_names):
-                    SeqIO.write(record, append_handle, 'fasta')
-        else:
-            error = ValueError(f'keep_failed_contigs should be a boolean True or False; you provided '
-                               f'{keep_failed_contigs}')
-            logger.error(error)
-            raise error
+        repair_handle_failed_contigs(assembly_info, repair_paths, failed_contig_names, keep_failed_contigs, output_dir)
 
     # Get the linear contigs and append them to the repaired contigs file
     # TODO - consider just getting all non-circular contigs regardless of whether they are in the assembly info file.
     #   This edit might require modification of the subset_sequences function and refactoring of code in several places,
     #   but I imagine it is closer to the behaviour that the user would expect.
-    linear_contig_names = parse_assembly_info_file(assembly_info_filepath, assembly_info_type, return_type='linear')
+    linear_contig_names = parse_assembly_info_file(assembly_info.assembly_info_filepath,
+                                                   assembly_info.assembly_info_type, return_type='linear')
 
-    with open(end_repaired_contigs_filepath, 'a') as append_handle:
-        for record in subset_sequences(assembly_fasta_filepath, linear_contig_names):
+    contig_info = ContigInfo(circular_contig_names, failed_contig_names, linear_contig_names)
+
+    with open(repair_paths.end_repaired_contigs_filepath, 'a') as append_handle:
+        for record in subset_sequences(assembly_info.assembly_fasta_filepath, linear_contig_names):
             SeqIO.write(record, append_handle, 'fasta')
 
-    # Write info file of how contigs were repaired
-    repaired_contig_names = list(set(circular_contig_names).difference(set(failed_contig_names)))
-    repair_info = pd.concat([pd.DataFrame({'contig': repaired_contig_names, 'circular': 'Y', 'repaired': 'Y'}),
-                             pd.DataFrame({'contig': failed_contig_names, 'circular': 'Y', 'repaired': 'N'}),
-                             pd.DataFrame({'contig': linear_contig_names, 'circular': 'N', 'repaired': 'N'})], axis=0)
-    repair_info.to_csv(end_repair_status_filepath, sep='\t', index=False)
+    write_repair_info(contig_info, repair_paths)
 
     # Clean up temp files
-    os.remove(bam_filepath)
-    os.remove(f'{bam_filepath}.bai')
-    shutil.rmtree(linking_outdir_base)
+    os.remove(repair_paths.bam_filepath)
+    os.remove(f'{repair_paths.bam_filepath}.bai')
+    shutil.rmtree(repair_paths.linking_outdir_base)
 
+    log_repair_complete(contig_info, repair_paths)
+
+
+def log_repair_complete(contig_info, repair_paths):
+    """
+    Logs the completion of the repair process.
+
+    :param contig_info: an instance of the ContigInfo class containing information about repaired contigs
+    :param repair_paths: an instance of the RepairPaths class containing file paths used in the repair process
+    """
     logger.info('End repair finished!')
     logger.info('#### Final stats: ####')
-    logger.info(f'Circular, repaired: {len(repaired_contig_names)} contig(s)')
-    logger.info(f'Circular, not repairable: {len(failed_contig_names)} contig(s)')
-    logger.info(f'Linear: {len(linear_contig_names)} contig(s)')
+    logger.info(f'Circular, repaired: {len(contig_info.repaired_contig_names)} contig(s)')
+    logger.info(f'Circular, not repairable: {len(contig_info.failed_contig_names)} contig(s)')
+    logger.info(f'Linear: {len(contig_info.linear_contig_names)} contig(s)')
     logger.info('######################')
-    logger.info(f'Output contigs are saved at {end_repaired_contigs_filepath}. '
-                f'A summary of repair work is saved at {end_repair_status_filepath}.')
+    logger.info(f'Output contigs are saved at {repair_paths.end_repaired_contigs_filepath}. '
+                f'A summary of repair work is saved at {repair_paths.end_repair_status_filepath}.')
+
+
+def write_repair_info(contig_info, repair_paths):
+    """
+    This method writes repair information to an info a TSV file.
+
+    :param contig_info: An object of type ContigInfo containing information about contigs.
+    :param repair_paths: An object of type RepairPaths containing paths to output files.
+    """
+    # Write info file of how contigs were repaired
+    repair_info = pd.concat(
+        [pd.DataFrame({'contig': contig_info.repaired_contig_names, 'circular': 'Y', 'repaired': 'Y'}),
+         pd.DataFrame({'contig': contig_info.failed_contig_names, 'circular': 'Y', 'repaired': 'N'}),
+         pd.DataFrame({'contig': contig_info.linear_contig_names, 'circular': 'N', 'repaired': 'N'})], axis=0)
+    repair_info.to_csv(repair_paths.end_repair_status_filepath, sep='\t', index=False)
+
+
+def repair_handle_failed_contigs(assembly_info, repair_paths, failed_contig_names, keep_failed_contigs, output_dir):
+    """
+    Repair and handle failed contigs in the assembly.
+
+    :param assembly_info: An object containing information about the assembly.
+    :param repair_paths: An object containing repair paths.
+    :param failed_contig_names: A list of names of contigs that could not be circularized.
+    :param keep_failed_contigs: A boolean indicating whether to keep the original (non-repaired) versions of
+                                failed contigs in the final output file.
+    :param output_dir: The directory to which the output files should be saved.
+    """
+    if os.path.isdir(os.path.join(repair_paths.linking_outdir_base, 'troubleshooting')):
+        shutil.move(os.path.join(repair_paths.linking_outdir_base, 'troubleshooting'),
+                    os.path.join(output_dir, 'troubleshooting'))
+    if keep_failed_contigs is False:
+        logger.error(f'{len(failed_contig_names)} contigs could not be circularized. A partial output file '
+                     f'including successfully circularized contigs (and no linear contigs) is available at '
+                     f'{repair_paths.end_repaired_contigs_filepath} for debugging. Exiting with error status. See temporary '
+                     f'files and verbose logs for more details.')
+        sys.exit(1)
+    elif keep_failed_contigs is True:
+        logger.warning(f'{len(failed_contig_names)} contigs could not be circularized. The original (non-repaired) '
+                       f'versions of these contigs will be included in the final output file')
+        logger.warning(f'Names of contigs that could not be circularized: {", ".join(failed_contig_names)}')
+
+        # Get the non-repaired circular contigs and append them to the repaired contigs file
+        with open(repair_paths.end_repaired_contigs_filepath, 'a') as append_handle:
+            for record in subset_sequences(assembly_info.assembly_fasta_filepath, failed_contig_names):
+                SeqIO.write(record, append_handle, 'fasta')
+    else:
+        error = ValueError(f'keep_failed_contigs should be a boolean True or False; you provided '
+                           f'{keep_failed_contigs}')
+        logger.error(error)
+        raise error
+
+
+def repair_no_circular_input_contigs(assembly, repair_paths):
+    """
+    Handle repair when no circular contigs are found.
+    """
+    logger.info('No circular contigs. Will copy the input file, repaired_info.tsv, and finish early.')
+    shutil.copyfile(assembly.assembly_fasta_filepath, repair_paths.end_repaired_contigs_filepath)
+    linear_contig_names = parse_assembly_info_file(assembly.assembly_info_filepath, assembly.assembly_info_type,
+                                                   return_type='linear')
+    repair_info = pd.DataFrame({'contig': linear_contig_names, 'circular': 'N', 'repaired': 'N'})
+    repair_info.to_csv(repair_paths.end_repair_status_filepath, sep='\t', index=False)
+    logger.info('Pipeline finished.')
+    sys.exit(0)
 
 
 def subparse_cli(subparsers, parent_parser: argparse.ArgumentParser = None):
