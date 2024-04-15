@@ -2,14 +2,58 @@
 # external.py
 # Code for handling external CLI applications used by rotary-utils (e.g. flye)
 # Copyright Jackson M. Tsuji and Lee H. Bergstrand 2024
-
+import logging
 import os
 import shlex
+import shutil
 import subprocess
 
-from rotary_utils.repair import logger
-from rotary_utils.utils import set_write_mode, logger
+import pandas as pd
 
+from rotary_utils.repair import logger
+from rotary_utils.utils import set_write_mode
+
+logger = logging.getLogger(__name__)
+
+def check_dependency(dependency_name: str):
+    """
+    Checks if a required shell dependency is present and tries to get its version.
+
+    :param dependency_name: name of the dependency
+    :return: tuple of the path to the dependency and dependency version
+    """
+
+    dependency_path = shutil.which(dependency_name)
+    if dependency_path is None:
+        error = FileNotFoundError(f'Dependency not found: {dependency_name}')
+        logger.error(error)
+        raise error
+
+    dependency_version = get_dependency_version(dependency_name)
+
+    output_tuple = (dependency_path, dependency_version)
+    return output_tuple
+
+
+def check_dependencies(dependency_names: list):
+    """
+    For each provided dependency name, checks if the dependency exists and gets the path and version.
+
+    :param dependency_names: a list of names of dependencies to check
+    :return: dictionary with dependency names as key and a tuple of dependency paths and versions as values
+    """
+
+    path_and_version_tuples = []
+    for dependency_name in dependency_names:
+        path_and_version_tuple = check_dependency(dependency_name)
+        path_and_version_tuples.append(path_and_version_tuple)
+
+        dependency_path, dependency_version = path_and_version_tuple
+        logger.debug(f'{dependency_name}: version {dependency_version}: {dependency_path}')
+
+    dependency_dict = dict(zip(dependency_names, path_and_version_tuples))
+
+    return dependency_dict
 
 def get_dependency_version(dependency_name: str, log: bool = False):
     """
@@ -232,3 +276,5 @@ def check_circlator_success(circlator_logfile: str):
         raise error
 
     return result
+
+
