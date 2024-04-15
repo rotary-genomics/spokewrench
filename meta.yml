@@ -8,13 +8,13 @@ source:
 requirements:
   host:
     - python
-    - poetry
+    - pip
   run:
     - pandas=1.4
     - biopython=1.81
 
 build:
-  script: poetry install
+  script: pip install .
 
 test:
   commands:
