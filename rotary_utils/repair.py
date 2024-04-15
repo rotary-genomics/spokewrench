@@ -111,14 +111,18 @@ def parse_assembly_info_file(assembly_info_filepath: str, info_type: str, return
         circular_contigs = assembly_info[assembly_info['status'] == 'circular']
         linear_contigs = assembly_info[assembly_info['status'] != 'circular']
     else:
-        logger.error(f'Assembly info file format should be "flye" or "custom"; you provided {info_type}')
-        raise ValueError
+        error = ValueError(f'Assembly info file format should be "flye" or "custom"; you provided {info_type}')
+        logger.error(error)
+        raise error
 
     # Check for duplicate sequence IDs
     if assembly_info['#seq_name'].drop_duplicates().shape[0] < assembly_info['#seq_name'].shape[0]:
         duplicated_ids = set(assembly_info['#seq_name'][assembly_info['#seq_name'].duplicated() == True])
-        logger.error(f'Some sequence IDs are duplicated in the input assembly info file: {", ".join(duplicated_ids)}')
-        raise RuntimeError
+        error = RuntimeError(f'Some sequence IDs are duplicated in the input assembly info file: '
+                             f'{", ".join(duplicated_ids)}')
+        logger.error(error)
+        raise error
+
     if return_type == 'circular':
         output_list = list(circular_contigs['#seq_name'])
         logger.debug(f'Found {len(output_list)} circular sequences')
@@ -126,8 +130,9 @@ def parse_assembly_info_file(assembly_info_filepath: str, info_type: str, return
         output_list = list(linear_contigs['#seq_name'])
         logger.debug(f'Found {len(output_list)} linear sequences')
     else:
-        logger.error(f'Return_type must be "circular" or "linear"; you provided "{return_type}"')
-        raise RuntimeError
+        error = ValueError(f'Return_type must be "circular" or "linear"; you provided "{return_type}"')
+        logger.error(error)
+        raise error
 
     return output_list
 
@@ -155,9 +160,10 @@ def subset_sequences(input_fasta_filepath: str, subset_sequence_ids: list):
         sequence_names_series = pd.Series(sequence_names)
         duplicates_names = set(sequence_names_series[sequence_names_series.duplicated() == True])
 
-        logger.error(f'Duplicate sequence IDs were detected in the input FastA file "{input_fasta_filepath}": '
-                     f'{", ".join(duplicates_names)}')
-        raise RuntimeError
+        error = RuntimeError(f'Duplicate sequence IDs were detected in the input FastA file "{input_fasta_filepath}": '
+                             f'{", ".join(duplicates_names)}')
+        logger.error(error)
+        raise error
 
 
 def generate_bed_file(contig_seqrecord: SeqIO.SeqRecord, bed_filepath: str, length_threshold: int = 100000):
@@ -277,8 +283,9 @@ def run_flye(fastq_filepath: str, flye_outdir: str, flye_read_mode: str, flye_re
 
     # TODO - add support for PacBio reads
     if (flye_read_mode != 'nano-raw') & (flye_read_mode != 'nano-hq'):
-        logger.error(f'flye_read_mode must be "nano-raw" or "nano-hq"; you provided {flye_read_mode}')
-        raise ValueError
+        error = ValueError(f'flye_read_mode must be "nano-raw" or "nano-hq"; you provided {flye_read_mode}')
+        logger.error(error)
+        raise error
 
     flye_args = ['flye', f'--{flye_read_mode}', fastq_filepath, '-o', flye_outdir, '-t', str(threads)]
 
@@ -348,8 +355,12 @@ def check_circlator_success(circlator_logfile: str):
         logger.debug('Not everything is stitched.')
         result = False
     else:
-        logger.error('File processing error. # of non-stitched contigs is not >=0. Exiting...')
-        raise RuntimeError
+        error = RuntimeError(f'Could not understand the circularization status output by circlator: '
+                             f'{circlator_info.shape[0]} rows, but the sum of circularization status of these rows is '
+                             f'{circlator_info["circularised"].sum()} (should be >=0, because each row should have a'
+                             f'status of either 0 or 1).')
+        logger.error(error)
+        raise error
 
     return result
 
@@ -580,9 +591,10 @@ def stitch_all_contigs(circular_contig_tmp_fasta: str, bam_filepath: str, linkin
                             os.path.join(linking_outdir_base, 'log_summary', f'{contig_record.name}.log'))
                 shutil.rmtree(linking_outdir)
             else:
-                logger.error(f'end_linkage_complete should be boolean True or False; is actually '
-                             f'{end_linkage_complete}')
-                raise ValueError
+                error = ValueError(f'end_linkage_complete should be boolean True or False; is actually '
+                                   f'{end_linkage_complete}')
+                logger.error(error)
+                raise error
 
     return failed_contig_names
 
@@ -674,8 +686,10 @@ def run_end_repair(long_read_filepath: str, assembly_fasta_filepath: str, assemb
                 for record in subset_sequences(assembly_fasta_filepath, failed_contig_names):
                     SeqIO.write(record, append_handle, 'fasta')
         else:
-            logger.error(f'keep_failed_contigs should be a boolean True or False; you provided {keep_failed_contigs}')
-            raise ValueError
+            error = ValueError(f'keep_failed_contigs should be a boolean True or False; you provided '
+                               f'{keep_failed_contigs}')
+            logger.error(error)
+            raise error
 
     # Get the linear contigs and append them to the repaired contigs file
     # TODO - consider just getting all non-circular contigs regardless of whether they are in the assembly info file.

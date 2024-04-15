@@ -33,7 +33,7 @@ def check_output_file(output_filepath: str, overwrite: bool = False):
         elif overwrite is True:
             logger.warning(f'Output file already exists: "{output_filepath}". File will be overwritten.')
         else:
-            raise ValueError
+            raise ValueError(f'overwrite must be True or False, but you provided "{overwrite}"')
 
 
 def set_up_output_directory(output_directory_filepath: str, overwrite: bool = False):
@@ -54,7 +54,7 @@ def set_up_output_directory(output_directory_filepath: str, overwrite: bool = Fa
         elif overwrite is True:
             logger.warning(f'Output directory already exists: "{output_directory_filepath}". Files may be overwritten.')
         else:
-            raise ValueError
+            raise ValueError(f'overwrite must be True or False, but you provided "{overwrite}"')
 
     os.makedirs(output_directory_filepath, exist_ok=True)
 
@@ -99,13 +99,14 @@ def check_dependency(dependency_name: str):
     Checks if a required shell dependency is present and tries to get its version.
 
     :param dependency_name: name of the dependency
-    :return: tuple: path to the dependency, dependency version (if available)
+    :return: tuple of the path to the dependency and dependency version
     """
 
     dependency_path = shutil.which(dependency_name)
     if dependency_path is None:
-        logger.error(f'Dependency not found: {dependency_name}')
-        raise RuntimeError
+        error = FileNotFoundError(f'Dependency not found: {dependency_name}')
+        logger.error(error)
+        raise error
 
     dependency_version = get_dependency_version(dependency_name)
 
@@ -118,7 +119,7 @@ def check_dependencies(dependency_names: list):
     For each provided dependency name, checks if the dependency exists and gets the path and version.
 
     :param dependency_names: a list of names of dependencies to check
-    :return: a dictionary with dependency names as key and a tuple of dependency paths and versions as values
+    :return: dictionary with dependency names as key and a tuple of dependency paths and versions as values
     """
 
     path_and_version_tuples = []
@@ -148,8 +149,9 @@ def set_write_mode(append_log: bool):
     elif append_log is False:
         write_mode = 'w'
     else:
-        logger.error(f'append_log should be a boolean True or False; you provided {append_log}')
-        raise ValueError
+        error = ValueError(f'append_log should be a boolean True or False; you provided {append_log}')
+        logger.error(error)
+        raise error
 
     return write_mode
 

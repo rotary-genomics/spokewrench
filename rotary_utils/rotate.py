@@ -119,14 +119,18 @@ def check_rotate_args(args):
     if args.midpoint is True:
         defined_arguments = defined_arguments + 1
 
-    if defined_arguments > 1:
-        raise RuntimeError('More than one of -m, -p, -P, -t, and -T were specified in the command line, but only one '
-                           'of these can be set for a rotate run.')
-    elif defined_arguments == 0:
-        raise RuntimeError('None of -m, -p, -P, -t, and -T were specified in the command line, but you must select one '
-                           'of these to perform a rotate run.')
-    elif defined_arguments != 1:
-        raise RuntimeError('Ran into an issue processing the -m, -p, -P, -t, and -T arguments in the CLI.')
+    try:
+        if defined_arguments > 1:
+            raise RuntimeError('More than one of -m, -p, -P, -t, and -T were specified in the command line, but only '
+                               'one of these can be set for a rotate run.')
+        elif defined_arguments == 0:
+            raise RuntimeError('None of -m, -p, -P, -t, and -T were specified in the command line, but you must select '
+                               'one of these to perform a rotate run.')
+        elif defined_arguments != 1:
+            raise RuntimeError('Ran into an issue processing the -m, -p, -P, -t, and -T arguments in the CLI.')
+    except Exception as error:
+        logger.error(str(error))
+        raise
 
 
 def parse_rotate_value_table(rotate_table_filepath: str, rotate_type: str):
@@ -144,14 +148,18 @@ def parse_rotate_value_table(rotate_table_filepath: str, rotate_type: str):
     elif rotate_type == 'fraction':
         expected_column_names = ['sequence_id', 'rotate_fraction']
     else:
-        raise ValueError(f'Expected "position" or "fraction", but got "{rotate_type}".')
+        error = ValueError(f'Expected "position" or "fraction", but got "{rotate_type}".')
+        logger.error(error)
+        raise error
 
     rotate_table = pd.read_csv(rotate_table_filepath, sep='\t')
 
     if (expected_column_names[0] not in rotate_table.columns) | (expected_column_names[1] not in rotate_table.columns):
-        raise RuntimeError(f'Because rotate_type was set as "{rotate_type}", expected the column names '
+        error = ValueError(f'Because rotate_type was set as "{rotate_type}", expected the column names '
                            f'"{",".join(expected_column_names)}", but could not find these in the loaded columns.'
                            f'Instead, found "{",".join(rotate_table.columns)}"')
+        logger.error(error)
+        raise error
 
     rotate_values_dict = dict(zip(rotate_table[expected_column_names[0]], rotate_table[expected_column_names[1]]))
 
@@ -194,18 +202,18 @@ def rotate_sequence_to_position(sequence_record: SeqIO.SeqRecord, rotate_positio
     """
 
     sequence_length = len(sequence_record.seq)
-    if rotate_position > sequence_length:
-        logger.error(f'Desired positional rotation ({rotate_position} bp) is larger than the sequence length '
-                     f'({sequence_length} bp).')
-        raise RuntimeError
-
-    elif rotate_position == sequence_length:
-        logger.warning(f'Desired positional rotation ({rotate_position} bp) is equal to the sequence length '
-                       f'({sequence_length} bp), so the sequence will effectively not be rotated.')
-
-    elif rotate_position < 0:
-        logger.error(f'Desired positional rotation ({rotate_position}) is less than 0.')
-        raise RuntimeError
+    try:
+        if rotate_position > sequence_length:
+            raise ValueError(f'Desired positional rotation ({rotate_position} bp) is larger than the sequence length '
+                             f'({sequence_length} bp).')
+        elif rotate_position == sequence_length:
+            logger.warning(f'Desired positional rotation ({rotate_position} bp) is equal to the sequence length '
+                           f'({sequence_length} bp), so the sequence will effectively not be rotated.')
+        elif rotate_position < 0:
+            raise ValueError(f'Desired positional rotation ({rotate_position}) is less than 0.')
+    except Exception as error:
+        logger.error(str(error))
+        raise
 
     if quiet is False:
         logger.debug(f'{sequence_record.name} ({sequence_length} bp): rotating by {rotate_position} bp '
@@ -238,8 +246,9 @@ def rotate_sequence_to_fraction(sequence_record: SeqIO.SeqRecord, rotate_fractio
     sequence_length = len(sequence_record.seq)
 
     if rotate_fraction < 0:
-        logger.error(f'Requested rotation fraction ({rotate_fraction}) is less than 0.')
-        raise RuntimeError
+        error = ValueError(f'Requested rotation fraction ({rotate_fraction}) is less than 0.')
+        logger.error(error)
+        raise error
     else:
         rotate_position = math.floor(sequence_length * rotate_fraction)
         logger.debug(f'{sequence_record.name}: rotating to {rotate_fraction} * {sequence_length} bp = '
@@ -280,10 +289,14 @@ def rotate_sequences_wf(fasta_filepath: str, output_filepath: str, rotate_type: 
     subset_rotation = True if sequence_names is not None else False
 
     # Parse what kind of rotation values were supplied
-    if (rotate_values is not None) and (rotate_value_single is not None):
-        raise RuntimeError('Cannot set both rotate_values and rotate_value_single.')
-    elif (rotate_values is None) and (rotate_value_single is None):
-        raise RuntimeError('Must set one of rotate_values and rotate_value_single.')
+    try:
+        if (rotate_values is not None) and (rotate_value_single is not None):
+            raise RuntimeError('Cannot set both rotate_values and rotate_value_single.')
+        elif (rotate_values is None) and (rotate_value_single is None):
+            raise RuntimeError('Must set one of rotate_values and rotate_value_single.')
+    except Exception as error:
+        logger.error(str(error))
+        raise
 
     sequence_ids = []
     sequence_lengths = []
@@ -322,7 +335,9 @@ def rotate_sequences_wf(fasta_filepath: str, output_filepath: str, rotate_type: 
                     record_rotated = rotate_sequence_to_fraction(record, rotate_fraction=rotate_value,
                                                                  strip_description=strip_descriptions)
                 else:
-                    raise ValueError(f'Expected "position" or "fraction", but not {rotate_type}')
+                    error = ValueError(f'Expected "position" or "fraction", but not {rotate_type}')
+                    logger.error(error)
+                    raise error
 
             else:
                 # Just pass the record through without rotation
@@ -338,8 +353,10 @@ def rotate_sequences_wf(fasta_filepath: str, output_filepath: str, rotate_type: 
             total_sequences_in_file = total_sequences_in_file + 1
 
             if (max_sequences_in_file != 0) & (max_sequences_in_file < total_sequences_in_file):
-                raise RuntimeError(f'A maximum of {max_sequences_in_file} sequences is allowed, but the file contains '
-                                   f'more sequences than this.')
+                error = RuntimeError(f'A maximum of {max_sequences_in_file} sequences is allowed, but the file '
+                                     f'contains more sequences than this.')
+                logger.error(error)
+                raise error
 
             SeqIO.write(record_rotated, output_handle, 'fasta')
 
