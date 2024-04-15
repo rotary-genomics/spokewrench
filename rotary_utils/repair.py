@@ -162,13 +162,12 @@ def subset_sequences(input_fasta_filepath: str, subset_sequence_ids: list):
 
 def generate_bed_file(contig_seqrecord: SeqIO.SeqRecord, bed_filepath: str, length_threshold: int = 100000):
     """
-    Generates a BED file for a desired region around the ends of a contig.
+    Generates a BED file for a desired region around the ends of a contig. Writes the BED file to the bed_filepath.
 
     :param contig_seqrecord: SeqRecord of the contig
     :param bed_filepath: desired output filepath for the BED file
     :param length_threshold: length (bp) around the contig end to target in the BED file.
                              Half of this length will be returned around each end of the contig.
-    :return: writes the BED file to the bed_filepath
     """
 
     contig_name = contig_seqrecord.name
@@ -197,7 +196,8 @@ def generate_bed_file(contig_seqrecord: SeqIO.SeqRecord, bed_filepath: str, leng
 def map_long_reads(contig_filepath: str, long_read_filepath: str, output_bam_filepath: str, log_filepath: str,
                    append_log: bool = True, threads: int = 1, threads_mem_mb: float = 1):
     """
-    Maps long reads (via minimap2) to contigs and sorts/indexes the resulting BAM file.
+    Maps long reads (via minimap2) to contigs and sorts/indexes the resulting BAM file. output_bam_filepath and
+    log_filepath are saved to disk.
 
     :param contig_filepath: path to the FastA file containing the reference contigs
     :param long_read_filepath: path to the FastQ file containing long reads to map (compressed is OK)
@@ -207,7 +207,6 @@ def map_long_reads(contig_filepath: str, long_read_filepath: str, output_bam_fil
                        this setting is only relevant if the log file at log_filepath already exists
     :param threads: number of threads to use for read mapping
     :param threads_mem_mb: memory in MB per thread (to use for samtools); must be an integer
-    :return: output_bam_filepath and log_filepath are saved to disk
     """
 
     write_mode = set_write_mode(append_log)
@@ -235,7 +234,8 @@ def map_long_reads(contig_filepath: str, long_read_filepath: str, output_bam_fil
 def subset_reads_from_bam(bam_filepath: str, bed_filepath: str, subset_fastq_filepath: str, log_filepath: str,
                           append_log: bool = True, threads: int = 1):
     """
-    Subsets reads from a BAM file that were mapped to regions defined in a BED file; saves reads to a FastQ file.
+    Subsets reads from a BAM file that were mapped to regions defined in a BED file; saves reads to a FastQ file, at
+    filepath subset_fastq_filepath.
 
     :param bam_filepath: path to a BAM file containing reads mapped to a reference; BAM needs to be sorted and indexed
     :param bed_filepath: path to a BED file containing the regions of reference contigs to subset reads for
@@ -244,7 +244,6 @@ def subset_reads_from_bam(bam_filepath: str, bed_filepath: str, subset_fastq_fil
     :param append_log: whether the log should append to an existing file (True) or overwrite an existing file (False);
                        this setting is only relevant if the log file at log_filepath already exists
     :param threads: number of threads to use for read mapping
-    :return: subset_fastq_filepath is saved to disk
     """
 
     write_mode = set_write_mode(append_log)
@@ -302,7 +301,7 @@ def run_circlator_merge(circular_contig_filepath: str, patch_contig_filepath: st
                         circlator_reassemble_end: int, log_filepath: str, append_log: bool = True):
     """
     Runs the 'circlator merge' module to stitch a gap-spanning contig onto the ends of a circular contig to confirm and
-    repair the circularization of the contig.
+    repair the circularization of the contig. 'circlator merge' output is saved to disk at merge_outdir
 
     :param circular_contig_filepath: path to a FastA file containing the original (non-stitched) circular contig
     :param patch_contig_filepath: path to a FastA file containing a linear contig that should span the 'ends' of the
@@ -315,7 +314,6 @@ def run_circlator_merge(circular_contig_filepath: str, patch_contig_filepath: st
     :param log_filepath: path to the log file to be saved
     :param append_log: whether the log should append to an existing file (True) or overwrite an existing file (False);
                        this setting is only relevant if the log file at log_filepath already exists
-    :return: circlator merge output is saved to disk at merge_outdir
     """
 
     os.makedirs(merge_outdir, exist_ok=True)
@@ -530,12 +528,12 @@ def stitch_all_contigs(circular_contig_tmp_fasta: str, bam_filepath: str, linkin
                        verbose_logfile: str, threads: int):
     """
     Run the iterate_linking_contig_ends function on all contigs in an input FastA file, i.e., attempt to stitch the ends
-    of all the contigs (assumed circular) in the file.
+    of all the contigs (assumed circular) in the file. Writes stitched contigs to end_repaired_contigs_filepath.
 
     :param circular_contig_tmp_fasta: Input FastA file of circular contigs to be stitched
     :param bam_filepath: Path to a BAM file with mapping information of long reads to the contigs (it is OK if this file
                          also contains mappings to other contigs outside those in the input file)
-    :param end_repaired_contigs_filepath: Path (to be overwritten by this funtion) to save the end repaired contigs
+    :param end_repaired_contigs_filepath: Path (to be overwritten by this function) to save the end repaired contigs
     :param linking_outdir_base: Temp directory to save re-assembly and stitching files to
     :param length_thresholds: list of bp regions around the contig ends to attempt to subset for the assembly
     :param cli_tool_settings_dict: dictionary containing the following CLI tool settings, as defined in main(), as keys:
@@ -543,8 +541,8 @@ def stitch_all_contigs(circular_contig_tmp_fasta: str, bam_filepath: str, linkin
                                    circlator_ref_end, circlator_reassemble_end
     :param verbose_logfile: path to a logfile where shell script logs will be added
     :param threads: parallel processor threads to use for the analysis
-    :return: Writes stitched contigs to end_repaired_contigs_filepath. Returns a list of the names of any contigs that
-             could not be stitched successfully (list length will be zero if all contigs stitched successfully)
+    :return: list of the names of any contigs that could not be stitched successfully (list length will be zero if all
+             contigs stitched successfully)
     """
 
     # Initialize the repaired contigs FastA file (so it will overwrite an old file rather than just append later)
@@ -610,7 +608,6 @@ def run_end_repair(long_read_filepath: str, assembly_fasta_filepath: str, assemb
                                    circlator_ref_end, circlator_reassemble_end
     :param threads: parallel processor threads to use for the analysis
     :param threads_mem_mb: memory in MB per thread (to use for samtools); must be an integer
-    :return: None
     """
 
     # Define core file names and directory structures

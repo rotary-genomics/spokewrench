@@ -274,7 +274,7 @@ def rotate_sequences_wf(fasta_filepath: str, output_filepath: str, rotate_type: 
     :param max_sequences_in_file: maximum number of allowable sequences in the input file (default: 0 = unlimited)
     :param append: whether to append the output FastA onto an existing file (True) or overwrite (False)
     :param strip_descriptions: boolean of whether to trim off the read description in the output sequences
-    :return: tabular report of rotation stats for each sequence
+    :return: tabular report (pandas DataFrame) of rotation stats for each sequence
     """
 
     subset_rotation = True if sequence_names is not None else False
