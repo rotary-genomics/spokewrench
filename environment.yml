@@ -10,3 +10,4 @@ dependencies:
   - flye=2.9
   - minimap2=2.23
   - samtools=1.15
+  - mummer4
