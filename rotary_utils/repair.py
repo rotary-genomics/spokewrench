@@ -587,7 +587,8 @@ def write_repair_info(contig_info, repair_paths):
     repair_info.to_csv(repair_paths.end_repair_status_filepath, sep='\t', index=False)
 
 
-def repair_handle_failed_contigs(assembly_info, repair_paths, failed_contig_names, keep_failed_contigs, output_dir):
+def repair_handle_failed_contigs(assembly_info: AssemblyInfo, repair_paths: RepairPaths, failed_contig_names,
+                                 keep_failed_contigs, output_dir):
     """
     Repair and handle failed contigs in the assembly.
 
@@ -623,7 +624,7 @@ def repair_handle_failed_contigs(assembly_info, repair_paths, failed_contig_name
         raise error
 
 
-def repair_no_circular_input_contigs(assembly, repair_paths):
+def repair_no_circular_input_contigs(assembly: AssemblyInfo, repair_paths: RepairPaths):
     """
     Handle repair when no circular contigs are found.
     """
