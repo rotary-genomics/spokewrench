@@ -34,11 +34,12 @@ def main(args):
     assembly_info_type = 'custom' if args.custom_assembly_info_file is True else 'flye'
     # TODO - improve error handling if a string is provided instead of a real length
     length_thresholds = [int(x) for x in args.length_thresholds.split(',')]
-    tool_settings = ToolSettings(flye_read_mode=args.flye_read_mode, flye_read_error=args.flye_read_error,
-                                 circlator_min_id=args.circlator_min_id, circlator_min_length=args.circlator_min_length,
-                                 circlator_ref_end=args.circlator_ref_end,
-                                 circlator_reassemble_end=args.circlator_reassemble_end,
-                                 threads=args.threads, threads_mem=args.threads_mem)
+    tool_settings = RepairToolSettings(flye_read_mode=args.flye_read_mode, flye_read_error=args.flye_read_error,
+                                       circlator_min_id=args.circlator_min_id,
+                                       circlator_min_length=args.circlator_min_length,
+                                       circlator_ref_end=args.circlator_ref_end,
+                                       circlator_reassemble_end=args.circlator_reassemble_end,
+                                       threads=args.threads, threads_mem=args.threads_mem)
 
     # Startup messages
     logger.info('Running ' + os.path.basename(sys.argv[0]))
@@ -72,7 +73,7 @@ def main(args):
     logger.info(os.path.basename(sys.argv[0]) + ': done.')
 
 
-class ToolSettings:
+class RepairToolSettings:
     """
     A class representing settings for tools used in the repair workflow.
     """
@@ -291,7 +292,8 @@ def generate_bed_file(contig_seqrecord: SeqIO.SeqRecord, bed_filepath: str, leng
 
 
 def link_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: str, length_outdir: str, length_threshold: int,
-                     tool_settings: ToolSettings, verbose_logfile: str, override_circlator_min_length: int = None):
+                     tool_settings: RepairToolSettings, verbose_logfile: str,
+                     override_circlator_min_length: int = None):
     """
     Attempt to stitch the ends of an input circular contig via assembling reads mapped within x bp of the contig ends.
 
@@ -302,7 +304,7 @@ def link_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: str, length_o
                           before the function is run
     :param length_threshold: bp region around the contig ends to subset for the assembly (half of this distance will be
                              targeted from each contig end)
-    :param tool_settings: ToolSettings object containing settings for analysis tools used in the end repair workflow.
+    :param tool_settings: RepairToolSettings object containing settings for tools used in the end repair workflow.
     :param verbose_logfile: path to a log file where shell script logs will be saved
     :param override_circlator_min_length: optionally set a circlator_min_length argument to be used in place of the
                                           one provided in tool_settings. This can be useful if you know the contig is
@@ -356,7 +358,7 @@ def link_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: str, length_o
 
 
 def iterate_linking_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: str, linking_outdir: str,
-                                length_thresholds: list, tool_settings: ToolSettings, verbose_logfile: str):
+                                length_thresholds: list, tool_settings: RepairToolSettings, verbose_logfile: str):
     """
     Iterate link_contig_ends to try to stitch the ends of a circular contig using multiple length thresholds.
 
@@ -366,7 +368,7 @@ def iterate_linking_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: st
     :param linking_outdir: output directory for the analysis; will be created by the function, although it can exist
                            before the function is run.
     :param length_thresholds: list of bp regions around the contig ends to attempt to subset for the assembly.
-    :param tool_settings: ToolSettings object containing settings for analysis tools used in the end repair workflow.
+    :param tool_settings: RepairToolSettings object containing settings for tools used in the end repair workflow.
     :param verbose_logfile: path to a logfile where shell script logs will be saved.
     :return: boolean of whether end linkage was successful (True) or not (False).
     """
@@ -454,14 +456,14 @@ def iterate_linking_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: st
     return linked_ends
 
 
-def stitch_all_contigs(repair_paths: RepairPaths, length_thresholds: list, tool_settings: ToolSettings):
+def stitch_all_contigs(repair_paths: RepairPaths, length_thresholds: list, tool_settings: RepairToolSettings):
     """
     Run the iterate_linking_contig_ends function on all contigs in an input FastA file, i.e., attempt to stitch the ends
     of all the contigs (assumed circular) in the file. Writes stitched contigs to end_repaired_contigs_filepath.
 
     :param repair_paths: RepairPaths object containing paths to output files used in the repair process.
     :param length_thresholds: list of bp regions around the contig ends to attempt to subset for the assembly.
-    :param tool_settings: ToolSettings object containing settings for analysis tools used in the end repair workflow.
+    :param tool_settings: RepairToolSettings object containing settings for tools used in the end repair workflow.
     :return: list of the names of any contigs that could not be stitched successfully (list length will be zero if all
              contigs stitched successfully).
     """
@@ -482,7 +484,7 @@ def stitch_all_contigs(repair_paths: RepairPaths, length_thresholds: list, tool_
             linking_outdir = os.path.join(repair_paths.linking_outdir_base, contig_record.name)
             end_linkage_complete = iterate_linking_contig_ends(contig_record, repair_paths.bam_filepath, linking_outdir,
                                                                length_thresholds, tool_settings,
-                                                               repair_paths.verbose_logfile, tool_settings.threads)
+                                                               repair_paths.verbose_logfile)
 
             if end_linkage_complete is False:
                 logger.warning(f'Contig {contig_record.name}: FAILED to linked contig ends')
@@ -510,7 +512,7 @@ def stitch_all_contigs(repair_paths: RepairPaths, length_thresholds: list, tool_
 
 
 def run_end_repair(long_read_filepath: str, assembly_info: AssemblyInfo, output_dir: str, length_thresholds: list,
-                   keep_failed_contigs: bool, tool_settings: ToolSettings):
+                   keep_failed_contigs: bool, tool_settings: RepairToolSettings):
     """
     Runs the end repair workflow.
 
@@ -521,7 +523,7 @@ def run_end_repair(long_read_filepath: str, assembly_info: AssemblyInfo, output_
     :param keep_failed_contigs: boolean that defines whether to 1) continue the code even if some contigs cannot be end
                                  repaired (True) vs. to 2) exit with an error code if some contigs cannot be end
                                  repaired (False).
-    :param tool_settings: ToolSettings object containing settings for analysis tools used in the end repair workflow.
+    :param tool_settings: RepairToolSettings object containing settings for tools used in the end repair workflow.
     """
 
     repair_paths = RepairPaths(output_dir)
@@ -549,7 +551,7 @@ def run_end_repair(long_read_filepath: str, assembly_info: AssemblyInfo, output_
                    append_log=False, threads=tool_settings.threads, threads_mem_mb=tool_settings.threads_mem_mb)
 
     failed_contig_names = stitch_all_contigs(repair_paths=repair_paths, length_thresholds=length_thresholds,
-                                             tool_settings=tool_settings, threads=threads)
+                                             tool_settings=tool_settings)
     os.makedirs(repair_paths.circlator_logs, exist_ok=True)
     shutil.move(os.path.join(repair_paths.linking_outdir_base, 'log_summary'), repair_paths.circlator_logs)
 
