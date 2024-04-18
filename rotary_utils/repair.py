@@ -67,9 +67,10 @@ def main(args):
     logger.debug(f'Verbose logging: {args.verbose}')
     logger.debug('################')
 
-    run_end_repair(args.long_read_filepath, args.assembly_fasta_filepath, args.assembly_info_filepath,
-                   assembly_info_type, args.output_dir, length_thresholds, args.keep_going_with_failed_contigs,
-                   cli_tool_settings_dict, args.threads, threads_mem_mb)
+    assembly_info = AssemblyInfo(args.assembly_fasta_filepath, args.assembly_info_filepath, assembly_info_type)
+
+    run_end_repair(args.long_read_filepath, assembly_info, args.output_dir, length_thresholds,
+                   args.keep_going_with_failed_contigs, cli_tool_settings_dict, args.threads, threads_mem_mb)
 
     logger.info(os.path.basename(sys.argv[0]) + ': done.')
 
@@ -455,6 +456,12 @@ class AssemblyInfo:
     """
 
     def __init__(self, assembly_fasta_filepath, assembly_info_filepath, assembly_info_type):
+        """
+        :param assembly_fasta_filepath: path to the assembled contigs output by Flye, FastA format
+        :param assembly_info_filepath: path to assembly_info.txt output by Flye
+        :param assembly_info_type: 'flye' type for assembly_info.txt from flye; 'custom' for custom format (see
+                                   parse_cli for custom format details)
+        """
         self.assembly_fasta_filepath = assembly_fasta_filepath
         self.assembly_info_filepath = assembly_info_filepath
         self.assembly_info_type = assembly_info_type
@@ -471,17 +478,13 @@ class ContigInfo:
         self.linear_contig_names = linear_contig_names
 
 
-def run_end_repair(long_read_filepath: str, assembly_fasta_filepath: str, assembly_info_filepath: str,
-                   assembly_info_type: str, output_dir: str, length_thresholds: list, keep_failed_contigs: bool,
-                   cli_tool_settings_dict: dict, threads: int, threads_mem_mb: int):
+def run_end_repair(long_read_filepath: str, assembly_info: AssemblyInfo, output_dir: str, length_thresholds: list,
+                   keep_failed_contigs: bool, cli_tool_settings_dict: dict, threads: int, threads_mem_mb: int):
     """
     Runs the end repair workflow.
 
     :param long_read_filepath: path to the QC-passing Nanopore reads, FastQ format; gzipped is OK
-    :param assembly_fasta_filepath: path to the assembled contigs output by Flye, FastA format
-    :param assembly_info_filepath: path to assembly_info.txt output by Flye
-    :param assembly_info_type: 'flye' type for assembly_info.txt from flye; 'custom' for custom format (see parse_cli
-                               for custom format details)
+    :param assembly_info: AssemblyInfo object with files paths containing info about the input assembly
     :param output_dir: path to the directory to save output files
     :param length_thresholds: list of bp regions around the contig ends to attempt to subset for the assembly
     :param keep_failed_contigs: boolean that defines whether to 1) continue the code even if some contigs cannot be end
@@ -495,7 +498,6 @@ def run_end_repair(long_read_filepath: str, assembly_fasta_filepath: str, assemb
     """
 
     repair_paths = RepairPaths(output_dir)
-    assembly_info = AssemblyInfo(assembly_fasta_filepath, assembly_info_filepath, assembly_info_type)
 
     # Get lists of circular contigs
     circular_contig_names = parse_assembly_info_file(assembly_info.assembly_info_filepath,
