@@ -81,7 +81,7 @@ class RepairToolSettings:
     def __init__(self, flye_read_mode: str, flye_read_error: float, circlator_min_id: float, circlator_min_length: int,
                  circlator_ref_end: int, circlator_reassemble_end: int, threads: int, threads_mem: float):
         """
-        Instantiate an AssemblyInfo object.
+        Instantiate a RepairToolSettings object.
 
         :param flye_read_mode: type of long read reads to be used for reassembly by Flye. See details in the Flye
                                documentation. Currently, nano-hq and nano-raw are available.
@@ -155,25 +155,26 @@ class RepairPaths:
         self.verbose_logfile = os.path.join(output_dir, 'verbose.log')
 
 
-class StitchPaths:
+class StitchDirectories:
     """
-    A class containing file paths that are used during a single iteration of the assembly and stitch process.
+    A class containing directory paths that are used during a single iteration of the assembly and stitch process.
     """
 
     def __init__(self, linking_outdir: str, length_threshold: int = None, make_dirs: bool = False):
         """
         Instantiate a StitchPaths object.
 
-        :param linking_outdir: output directory for the analysis.
+        :param linking_outdir: output directory for the overall analysis.
         :param length_threshold: length (bp) that the original contig will be subset to for the given analysis.
-        :param make_dirs: if True, makes the output directories if they do not already exist
+        :param make_dirs: if True, makes the directories whose paths are specified by the object, if the directories
+                          do not already exist.
         """
         """
-        Description of attributes:
-            linking_outdir: output directory for the analysis.
-            log_dir_base: where important log files will be copied.
+        Description of constant attributes:
+            linking_outdir: output directory for the overall analysis.
+            log_dir_base: directory where key log files will be saved.
             length_outdir: output directory for a specific length threshold.
-            log_dir: output directory for log files from a specific length threshold.
+            log_dir: directory where log files for a specific length threshold will be saved.
         """
         self.linking_outdir = linking_outdir
         self.log_dir_base = os.path.join(linking_outdir, 'logs')
@@ -192,7 +193,8 @@ class StitchPaths:
         Set names of directories to be created for a given length threshold
 
         :param length_threshold: length (bp) that the original contig will be subset to for the given analysis.
-        :param make_dirs: if True, makes the output directories if they do not already exist
+        :param make_dirs: if True, makes the directories whose paths are specified by the object, if the directories
+                          do not already exist.
         """
 
         self.length_outdir = os.path.join(self.linking_outdir, 'tmp', f'L{length_threshold}')
@@ -205,7 +207,7 @@ class StitchPaths:
 
 class ContigInfo:
     """
-    A class representing file paths containing info about the contigs of an assembly.
+    A class containing contig names from an assembly, separated into lists based on their repair outcomes.
     """
     def __init__(self, circular_contig_names: list, failed_contig_names: list, linear_contig_names: list):
         """
@@ -225,7 +227,7 @@ class ContigInfo:
 
 def load_custom_assembly_info_file(assembly_info_filepath: str):
     """
-    Carefully load and check a custom-format assembly info file.
+    Load and check a custom-format assembly info file.
 
     :param assembly_info_filepath: path to the custom assembly info file.
     :return: pandas DataFrame of the assembly info file
@@ -250,9 +252,9 @@ def load_custom_assembly_info_file(assembly_info_filepath: str):
 
 def parse_assembly_info_file(assembly_info_filepath: str, info_type: str):
     """
-    List circular and linear contigs from a Flye (or custom format) assembly info file.
+    Extract circular and linear contig names from a Flye (or custom format) assembly info file.
 
-    :param assembly_info_filepath: path to assembly_info.txt output by Flye.
+    :param assembly_info_filepath: path to assembly_info.txt output by Flye or a custom assembly info file.
     :param info_type: whether the info file is in 'flye' format or is a 'custom' format.
                       'flye' format refers to the 'assembly_info.txt' format output by Flye after a successful assembly.
                       'custom' info files are tab-separated, have no headers, and have two columns: contig name and
@@ -428,55 +430,38 @@ def override_min_stitch_length(circlator_min_length: int, length_threshold: int)
     """
 
     if circlator_min_length > length_threshold:
-        revised_min_length = int(length_threshold * 0.9)
-        override_circlator_min_length = revised_min_length
+        circlator_min_length_revised = int(length_threshold * 0.9)
         logger.warning(f'The minimum required length of alignment between the original and reassembled contig '
                        f'(specified by circlator_min_length; {circlator_min_length} bp) is longer '
                        f'than the length_threshold the original contig will be subset to ({length_threshold} bp). '
                        f'This means that finding a matching merge will be impossible. To overcome this, the script '
                        f'will shorten the circlator_min_length for this iteration to 90% of the length threshold, '
-                       f'i.e., {revised_min_length} bp.')
+                       f'i.e., {circlator_min_length_revised} bp.')
     else:
-        override_circlator_min_length = None
+        circlator_min_length_revised = None
 
-    return override_circlator_min_length
+    return circlator_min_length_revised
 
 
-def process_successful_reassembly(contig_id, stitch_paths):
+def process_successful_stitch(contig_id, stitch_dirs):
     """
-    Processes a successful reassembly of a contig end. Log files are moved to the appropriate places, the status of the
-    contig stitch is confirmed, and the final contig is rotated to its midpoint if the stitch was successful.
+    Processes a successfully stitched contig. The contig is rotated to its midpoint so that it can be polished more
+    effectively downstream, and copies of key log files are saved.
 
     :param contig_id: name of the contig being assessed.
-    :param stitch_paths: StitchPaths object containing the paths to key directories used during a single contig linking
-                         iteration.
-    :return: boolean of whether the ends of the contig could be successfully linked (i,e., stitched): True if the ends
-             could be linked, False if the ends could not be linked.
+    :param stitch_dirs: StitchDirectories object containing the paths to key directories used during a single contig
+                        linking iteration.
     """
-    # Copy important log files
-    shutil.copy(os.path.join(stitch_paths.length_outdir, 'assembly', 'assembly_info.txt'), stitch_paths.log_dir)
-    shutil.copy(os.path.join(stitch_paths.length_outdir, 'merge', 'merge.circularise.log'), stitch_paths.log_dir)
-    shutil.copy(os.path.join(stitch_paths.length_outdir, 'merge', 'merge.circularise_details.log'),
-                stitch_paths.log_dir)
 
-    # See if stitching the contigs ends worked
-    if check_circlator_success(os.path.join(stitch_paths.length_outdir, 'merge', 'merge.circularise.log')) is True:
-        logger.info('Successfully linked contig ends')
+    # Rotate to midpoint
+    rotate_sequences_wf(fasta_filepath=os.path.join(stitch_dirs.length_outdir, 'merge', 'merge.fasta'),
+                        output_filepath=os.path.join(stitch_dirs.linking_outdir, 'stitched.fasta'),
+                        rotate_type='fraction', rotate_value_single=0.5, max_sequences_in_file=1, append=False,
+                        strip_descriptions=True)
 
-        # Rotate to midpoint so that the stitched points can be polished more effectively downstream
-        rotate_sequences_wf(fasta_filepath=os.path.join(stitch_paths.length_outdir, 'merge', 'merge.fasta'),
-                            output_filepath=os.path.join(stitch_paths.linking_outdir, 'stitched.fasta'),
-                            rotate_type='fraction', rotate_value_single=0.5, max_sequences_in_file=1, append=False,
-                            strip_descriptions=True)
-
-        # Save a copy of the final circlator merge logfile in the main log directory
-        shutil.copy(os.path.join(stitch_paths.length_outdir, 'merge', 'merge.circularise_details.log'),
-                    os.path.join(stitch_paths.log_dir_base, f'{contig_id}_circlator_final.log'))
-        linked_ends = True
-    else:
-        linked_ends = False
-
-    return linked_ends
+    # Save a copy of the final circlator merge logfile in the main log directory
+    shutil.copy(os.path.join(stitch_dirs.length_outdir, 'merge', 'merge.circularise_details.log'),
+                os.path.join(stitch_dirs.log_dir_base, f'{contig_id}_circlator_final.log'))
 
 
 def iterate_linking_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: str, linking_outdir: str,
@@ -495,7 +480,7 @@ def iterate_linking_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: st
     :return: boolean of whether end linkage was successful (True) or not (False).
     """
 
-    stitch_paths = StitchPaths(linking_outdir, make_dirs=True)
+    stitch_dirs = StitchDirectories(linking_outdir, make_dirs=True)
 
     # Keep trying to link the contig ends until successful or until all length thresholds have been attempted
     assembly_attempts = 0
@@ -515,17 +500,27 @@ def iterate_linking_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: st
             continue
 
         logger.info(f'Attempting reassembly with a length threshold of {length_threshold} bp')
-        stitch_paths.set_length_iteration_dirs(length_threshold, make_dirs=True)
+        stitch_dirs.set_length_iteration_dirs(length_threshold, make_dirs=True)
         override_circlator_min_length = override_min_stitch_length(tool_settings.circlator_min_length, length_threshold)
         flye_exit_status = link_contig_ends(contig_record=contig_record, bam_filepath=bam_filepath,
-                                            length_outdir=stitch_paths.length_outdir, length_threshold=length_threshold,
+                                            length_outdir=stitch_dirs.length_outdir, length_threshold=length_threshold,
                                             tool_settings=tool_settings, verbose_logfile=verbose_logfile,
                                             override_circlator_min_length=override_circlator_min_length)
         if flye_exit_status != 0:
             assembly_attempts = assembly_attempts + 1
             continue
 
-        linked_ends = process_successful_reassembly(contig_id=contig_record.name, stitch_paths=stitch_paths)
+        # Copy important log files
+        shutil.copy(os.path.join(stitch_dirs.length_outdir, 'assembly', 'assembly_info.txt'), stitch_dirs.log_dir)
+        shutil.copy(os.path.join(stitch_dirs.length_outdir, 'merge', 'merge.circularise.log'), stitch_dirs.log_dir)
+        shutil.copy(os.path.join(stitch_dirs.length_outdir, 'merge', 'merge.circularise_details.log'),
+                    stitch_dirs.log_dir)
+
+        if check_circlator_success(os.path.join(stitch_dirs.length_outdir, 'merge', 'merge.circularise.log')) is True:
+            logger.info('Successfully linked contig ends')
+            process_successful_stitch(contig_id=contig_record.name, stitch_dirs=stitch_dirs)
+            linked_ends = True
+
         assembly_attempts = assembly_attempts + 1
 
     shutil.rmtree(os.path.join(linking_outdir, 'tmp'))
