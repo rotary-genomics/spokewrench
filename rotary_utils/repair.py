@@ -75,6 +75,76 @@ def main(args):
     logger.info(os.path.basename(sys.argv[0]) + ': done.')
 
 
+class AssemblyInfo:
+    """
+    A class representing files paths containing info about the input assembly.
+    """
+
+    def __init__(self, assembly_fasta_filepath, assembly_info_filepath, assembly_info_type):
+        """
+        Instantiate an AssemblyInfo object.
+
+        :param assembly_fasta_filepath: path to the assembled contigs output by Flye, FastA format
+        :param assembly_info_filepath: path to assembly_info.txt output by Flye
+        :param assembly_info_type: 'flye' type for assembly_info.txt from flye; 'custom' for custom format (see
+                                   parse_cli for custom format details)
+        """
+        self.assembly_fasta_filepath = assembly_fasta_filepath
+        self.assembly_info_filepath = assembly_info_filepath
+        self.assembly_info_type = assembly_info_type
+
+
+class RepairPaths:
+    """
+    A class containing file paths that are used during the assembly repair process.
+    """
+
+    def __init__(self, output_dir):
+        """
+        Instantiate a RepairPaths object.
+
+        :param output_dir: output directory for the assembly repair process.
+        """
+        """
+        Description of attributes:
+            linking_outdir_base: Temporary directory where re-assembly and stitching files will be saved.
+            circular_contig_tmp_fasta: Temporary FastA file containing only circular contigs to be stitched.
+            bam_filepath: path to a BAM file with mapping information of long reads to the contigs (it is OK if this
+                          file also contains mappings to other contigs outside those in the input file).
+            circlator_logs: path where a summary of log files from circlator will be saved.
+            end_repaired_contigs_filepath: path where the end-repaired contigs will be saved.
+            end_repair_report_filepath: path where the end repair report will be saved.
+            verbose_logfile: path to a logfile where shell script logs will be saved.
+        """
+        self.linking_outdir_base = os.path.join(output_dir, 'contigs')
+        self.circular_contig_tmp_fasta = os.path.join(self.linking_outdir_base, 'circular_input.fasta')
+        self.bam_filepath = os.path.join(output_dir, 'long_read.bam')
+        self.circlator_logs = os.path.join(output_dir, 'circlator_logs')
+        self.end_repaired_contigs_filepath = os.path.join(output_dir, 'repaired.fasta')
+        self.end_repair_report_filepath = os.path.join(output_dir, 'repaired_info.tsv')
+        self.verbose_logfile = os.path.join(output_dir, 'verbose.log')
+
+
+class ContigInfo:
+    """
+    A class representing file paths containing info about the contigs of an assembly.
+    """
+    def __init__(self, circular_contig_names, failed_contig_names, linear_contig_names):
+        """
+        Instantiate a ContigInfo object.
+
+        :param circular_contig_names: list of names of circular contigs in the assembly info file that could be
+                                      properly repaired.
+        :param failed_contig_names: list of names of circular contigs in the assembly info file that could not be
+                                    properly repaired.
+        :param linear_contig_names: list of names of non-circular contigs in the assembly info file.
+        """
+        self.circular_contig_names = circular_contig_names
+        self.repaired_contig_names = list(set(circular_contig_names).difference(set(failed_contig_names)))
+        self.failed_contig_names = failed_contig_names
+        self.linear_contig_names = linear_contig_names
+
+
 def parse_assembly_info_file(assembly_info_filepath: str, info_type: str):
     """
     List circular and linear contigs from a Flye (or custom format) assembly info file.
@@ -360,61 +430,54 @@ def iterate_linking_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: st
     return linked_ends
 
 
-def stitch_all_contigs(circular_contig_tmp_fasta: str, bam_filepath: str, linking_outdir_base: str,
-                       end_repaired_contigs_filepath: str, length_thresholds: list, cli_tool_settings_dict: dict,
-                       verbose_logfile: str, threads: int):
+def stitch_all_contigs(repair_paths: RepairPaths, length_thresholds: list, cli_tool_settings_dict: dict, threads: int):
     """
     Run the iterate_linking_contig_ends function on all contigs in an input FastA file, i.e., attempt to stitch the ends
     of all the contigs (assumed circular) in the file. Writes stitched contigs to end_repaired_contigs_filepath.
 
-    :param circular_contig_tmp_fasta: Input FastA file of circular contigs to be stitched
-    :param bam_filepath: Path to a BAM file with mapping information of long reads to the contigs (it is OK if this file
-                         also contains mappings to other contigs outside those in the input file)
-    :param end_repaired_contigs_filepath: Path (to be overwritten by this function) to save the end repaired contigs
-    :param linking_outdir_base: Temp directory to save re-assembly and stitching files to
+    :param repair_paths: RepairPaths object containing paths to output files used in the repair process.
     :param length_thresholds: list of bp regions around the contig ends to attempt to subset for the assembly
     :param cli_tool_settings_dict: dictionary containing the following CLI tool settings, as defined in main(), as keys:
                                    flye_read_mode, flye_read_error, circlator_min_id, circlator_min_length,
                                    circlator_ref_end, circlator_reassemble_end
-    :param verbose_logfile: path to a logfile where shell script logs will be added
     :param threads: parallel processor threads to use for the analysis
     :return: list of the names of any contigs that could not be stitched successfully (list length will be zero if all
              contigs stitched successfully)
     """
 
     # Initialize the repaired contigs FastA file (so it will overwrite an old file rather than just append later)
-    with open(end_repaired_contigs_filepath, 'w') as output_handle:
+    with open(repair_paths.end_repaired_contigs_filepath, 'w') as output_handle:
         output_handle.write('')
 
     # Make the tmp directory for output files and the tmp directory where final log files (if any) will be moved
-    os.makedirs(os.path.join(linking_outdir_base, 'log_summary'), exist_ok=True)
+    os.makedirs(os.path.join(repair_paths.linking_outdir_base, 'log_summary'), exist_ok=True)
 
     failed_contig_names = []
-    with open(circular_contig_tmp_fasta) as fasta_handle:
+    with open(repair_paths.circular_contig_tmp_fasta) as fasta_handle:
         for contig_record in SeqIO.parse(fasta_handle, 'fasta'):
             logger.info(f'Starting end repair on contig: {contig_record.name}')
 
             # This is the temp folder that will be used for this contig during stitching
-            linking_outdir = os.path.join(linking_outdir_base, contig_record.name)
-            end_linkage_complete = iterate_linking_contig_ends(contig_record, bam_filepath, linking_outdir,
+            linking_outdir = os.path.join(repair_paths.linking_outdir_base, contig_record.name)
+            end_linkage_complete = iterate_linking_contig_ends(contig_record, repair_paths.bam_filepath, linking_outdir,
                                                                length_thresholds, cli_tool_settings_dict,
-                                                               verbose_logfile, threads)
+                                                               repair_paths.verbose_logfile, threads)
 
             if end_linkage_complete is False:
                 logger.warning(f'Contig {contig_record.name}: FAILED to linked contig ends')
-                os.makedirs(os.path.join(linking_outdir_base, 'troubleshooting'), exist_ok=True)
+                os.makedirs(os.path.join(repair_paths.linking_outdir_base, 'troubleshooting'), exist_ok=True)
                 shutil.move(os.path.join(linking_outdir, 'logs'),
-                            os.path.join(linking_outdir_base, 'troubleshooting', contig_record.name))
+                            os.path.join(repair_paths.linking_outdir_base, 'troubleshooting', contig_record.name))
 
                 failed_contig_names.append(contig_record.name)
             elif end_linkage_complete is True:
                 # Append the successful contig onto the main file
                 with open(os.path.join(linking_outdir, 'stitched.fasta')) as input_handle:
-                    with open(end_repaired_contigs_filepath, 'a') as append_handle:
+                    with open(repair_paths.end_repaired_contigs_filepath, 'a') as append_handle:
                         append_handle.write(input_handle.read())
 
                 shutil.move(os.path.join(linking_outdir, 'logs', f'{contig_record.name}_circlator_final.log'),
-                            os.path.join(linking_outdir_base, 'log_summary', f'{contig_record.name}.log'))
+                            os.path.join(repair_paths.linking_outdir_base, 'log_summary', f'{contig_record.name}.log'))
                 shutil.rmtree(linking_outdir)
             else:
                 error = ValueError(f'end_linkage_complete should be boolean True or False; is actually '
@@ -423,50 +486,6 @@ def stitch_all_contigs(circular_contig_tmp_fasta: str, bam_filepath: str, linkin
                 raise error
 
     return failed_contig_names
-
-
-class RepairPaths:
-    """
-    A class containing file paths that are used during the assembly repair process.
-    """
-
-    def __init__(self, output_dir):
-        self.linking_outdir_base = os.path.join(output_dir, 'contigs')
-        self.end_repaired_contigs_filepath = os.path.join(output_dir, 'repaired.fasta')
-        self.end_repair_status_filepath = os.path.join(output_dir, 'repaired_info.tsv')
-        self.verbose_logfile = os.path.join(output_dir, 'verbose.log')
-        self.bam_filepath = os.path.join(output_dir, 'long_read.bam')
-        self.circlator_logs = os.path.join(output_dir, 'circlator_logs')
-        self.contigs = os.path.join(output_dir, 'contigs')
-        self.circular_contig_tmp_fasta = os.path.join(self.linking_outdir_base, 'circular_input.fasta')
-
-
-class AssemblyInfo:
-    """
-    A class representing files paths containing info about the input assembly.
-    """
-
-    def __init__(self, assembly_fasta_filepath, assembly_info_filepath, assembly_info_type):
-        """
-        :param assembly_fasta_filepath: path to the assembled contigs output by Flye, FastA format
-        :param assembly_info_filepath: path to assembly_info.txt output by Flye
-        :param assembly_info_type: 'flye' type for assembly_info.txt from flye; 'custom' for custom format (see
-                                   parse_cli for custom format details)
-        """
-        self.assembly_fasta_filepath = assembly_fasta_filepath
-        self.assembly_info_filepath = assembly_info_filepath
-        self.assembly_info_type = assembly_info_type
-
-
-class ContigInfo:
-    """
-    A class representing file paths containing info about the contigs of an assembly.
-    """
-    def __init__(self, circular_contig_names, failed_contig_names, linear_contig_names):
-        self.circular_contig_names = circular_contig_names
-        self.repaired_contig_names = list(set(circular_contig_names).difference(set(failed_contig_names)))
-        self.failed_contig_names = failed_contig_names
-        self.linear_contig_names = linear_contig_names
 
 
 def run_end_repair(long_read_filepath: str, assembly_info: AssemblyInfo, output_dir: str, length_thresholds: list,
@@ -500,7 +519,7 @@ def run_end_repair(long_read_filepath: str, assembly_info: AssemblyInfo, output_
     if len(circular_contig_names) == 0:
         repair_no_circular_input_contigs(assembly_info, repair_paths, linear_contig_names)
 
-    # Subset circular contigs from the full file and save to disk
+    # Subset circular contigs to use in the end repair workflow
     os.makedirs(repair_paths.linking_outdir_base, exist_ok=True)
     with open(repair_paths.circular_contig_tmp_fasta, 'w') as output_handle:
         for record in subset_sequences(assembly_info.assembly_fasta_filepath, circular_contig_names):
@@ -510,15 +529,10 @@ def run_end_repair(long_read_filepath: str, assembly_info: AssemblyInfo, output_
     logger.info('Mapping reads to all contigs')
     map_long_reads(contig_filepath=assembly_info.assembly_fasta_filepath, long_read_filepath=long_read_filepath,
                    output_bam_filepath=repair_paths.bam_filepath, log_filepath=repair_paths.verbose_logfile,
-                   append_log=False, threads=threads,
-                   threads_mem_mb=threads_mem_mb)
+                   append_log=False, threads=threads, threads_mem_mb=threads_mem_mb)
 
-    failed_contig_names = stitch_all_contigs(repair_paths.circular_contig_tmp_fasta, repair_paths.bam_filepath,
-                                             repair_paths.linking_outdir_base,
-                                             repair_paths.end_repaired_contigs_filepath, length_thresholds,
-                                             cli_tool_settings_dict,
-                                             repair_paths.verbose_logfile, threads)
-
+    failed_contig_names = stitch_all_contigs(repair_paths=repair_paths, length_thresholds=length_thresholds,
+                                             cli_tool_settings_dict=cli_tool_settings_dict, threads=threads)
     os.makedirs(repair_paths.circlator_logs, exist_ok=True)
     shutil.move(os.path.join(repair_paths.linking_outdir_base, 'log_summary'), repair_paths.circlator_logs)
 
@@ -558,7 +572,7 @@ def log_repair_complete(contig_info, repair_paths):
     logger.info(f'Linear: {len(contig_info.linear_contig_names)} contig(s)')
     logger.info('######################')
     logger.info(f'Output contigs are saved at {repair_paths.end_repaired_contigs_filepath}. '
-                f'A summary of repair work is saved at {repair_paths.end_repair_status_filepath}.')
+                f'A summary of repair work is saved at {repair_paths.end_repair_report_filepath}.')
 
 
 def write_repair_report(contig_info, repair_paths):
@@ -574,7 +588,7 @@ def write_repair_report(contig_info, repair_paths):
         [pd.DataFrame({'contig': contig_info.repaired_contig_names, 'circular': 'Y', 'repaired': 'Y'}),
          pd.DataFrame({'contig': contig_info.failed_contig_names, 'circular': 'Y', 'repaired': 'N'}),
          pd.DataFrame({'contig': contig_info.linear_contig_names, 'circular': 'N', 'repaired': 'N'})], axis=0)
-    repair_info.to_csv(repair_paths.end_repair_status_filepath, sep='\t', index=False)
+    repair_info.to_csv(repair_paths.end_repair_report_filepath, sep='\t', index=False)
 
 
 def repair_handle_failed_contigs(assembly_info: AssemblyInfo, repair_paths: RepairPaths, failed_contig_names,
@@ -626,7 +640,7 @@ def repair_no_circular_input_contigs(assembly: AssemblyInfo, repair_paths: Repai
     shutil.copyfile(assembly.assembly_fasta_filepath, repair_paths.end_repaired_contigs_filepath)
 
     repair_info = pd.DataFrame({'contig': linear_contig_names, 'circular': 'N', 'repaired': 'N'})
-    repair_info.to_csv(repair_paths.end_repair_status_filepath, sep='\t', index=False)
+    repair_info.to_csv(repair_paths.end_repair_report_filepath, sep='\t', index=False)
     logger.info('Pipeline finished.')
     sys.exit(0)
 
