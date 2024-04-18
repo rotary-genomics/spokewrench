@@ -75,7 +75,7 @@ def main(args):
     logger.info(os.path.basename(sys.argv[0]) + ': done.')
 
 
-def parse_assembly_info_file(assembly_info_filepath: str, info_type: str, return_type: str = 'circular'):
+def parse_assembly_info_file(assembly_info_filepath: str, info_type: str):
     """
     List circular and linear contigs from a Flye (or custom format) assembly info file.
 
@@ -84,8 +84,7 @@ def parse_assembly_info_file(assembly_info_filepath: str, info_type: str, return
                       'flye' format refers to the 'assembly_info.txt' format output by Flye after a successful assembly.
                       'custom' info files are tab-separated, have no headers, and have two columns: contig name and
                       contig type, either 'circular' or 'linear'.
-    :param return_type: whether to return a list of 'circular' or 'linear' contigs
-    :return: list of contig names (either circular or linear depending on return_type)
+    :return: tuple containing a list of circular contig names (entry 0) and a list of linear contig names (entry 1)
     """
 
     if info_type == 'flye':
@@ -124,18 +123,10 @@ def parse_assembly_info_file(assembly_info_filepath: str, info_type: str, return
         logger.error(error)
         raise error
 
-    if return_type == 'circular':
-        output_list = list(circular_contigs['#seq_name'])
-        logger.debug(f'Found {len(output_list)} circular sequences')
-    elif return_type == 'linear':
-        output_list = list(linear_contigs['#seq_name'])
-        logger.debug(f'Found {len(output_list)} linear sequences')
-    else:
-        error = ValueError(f'Return_type must be "circular" or "linear"; you provided "{return_type}"')
-        logger.error(error)
-        raise error
+    contig_summary = (list(circular_contigs['#seq_name']), list(linear_contigs['#seq_name']))
+    logger.debug(f'Found {len(contig_summary[0])} circular sequences and {len(contig_summary[1])} linear sequences')
 
-    return output_list
+    return contig_summary
 
 
 def subset_sequences(input_fasta_filepath: str, subset_sequence_ids: list):
@@ -499,14 +490,15 @@ def run_end_repair(long_read_filepath: str, assembly_info: AssemblyInfo, output_
 
     repair_paths = RepairPaths(output_dir)
 
-    # Get lists of circular contigs
-    circular_contig_names = parse_assembly_info_file(assembly_info.assembly_info_filepath,
-                                                     assembly_info.assembly_info_type,
-                                                     return_type='circular')
+    # TODO: for linear contigs, consider just getting all non-circular contigs regardless of whether they are in the
+    #  assembly info file. This edit might require modification of the subset_sequences function and refactoring of code
+    #  in several places, but I imagine it is closer to the behaviour that the user would expect.
+    circular_contig_names, linear_contig_names = parse_assembly_info_file(assembly_info.assembly_info_filepath,
+                                                                          assembly_info.assembly_info_type)
 
     # No need to run the pipeline if there are no circular contigs
     if len(circular_contig_names) == 0:
-        repair_no_circular_input_contigs(assembly_info, repair_paths)
+        repair_no_circular_input_contigs(assembly_info, repair_paths, linear_contig_names)
 
     # Subset circular contigs from the full file and save to disk
     os.makedirs(repair_paths.linking_outdir_base, exist_ok=True)
@@ -514,7 +506,7 @@ def run_end_repair(long_read_filepath: str, assembly_info: AssemblyInfo, output_
         for record in subset_sequences(assembly_info.assembly_fasta_filepath, circular_contig_names):
             SeqIO.write(record, output_handle, 'fasta')
 
-    # Start the main workflow from here:
+    # Start the main workflow
     logger.info('Mapping reads to all contigs')
     map_long_reads(contig_filepath=assembly_info.assembly_fasta_filepath, long_read_filepath=long_read_filepath,
                    output_bam_filepath=repair_paths.bam_filepath, log_filepath=repair_paths.verbose_logfile,
@@ -534,20 +526,14 @@ def run_end_repair(long_read_filepath: str, assembly_info: AssemblyInfo, output_
     if len(failed_contig_names) != 0:
         repair_handle_failed_contigs(assembly_info, repair_paths, failed_contig_names, keep_failed_contigs, output_dir)
 
-    # Get the linear contigs and append them to the repaired contigs file
-    # TODO - consider just getting all non-circular contigs regardless of whether they are in the assembly info file.
-    #   This edit might require modification of the subset_sequences function and refactoring of code in several places,
-    #   but I imagine it is closer to the behaviour that the user would expect.
-    linear_contig_names = parse_assembly_info_file(assembly_info.assembly_info_filepath,
-                                                   assembly_info.assembly_info_type, return_type='linear')
-
-    contig_info = ContigInfo(circular_contig_names, failed_contig_names, linear_contig_names)
-
+    # Append linear contigs to the repaired contig file
     with open(repair_paths.end_repaired_contigs_filepath, 'a') as append_handle:
         for record in subset_sequences(assembly_info.assembly_fasta_filepath, linear_contig_names):
             SeqIO.write(record, append_handle, 'fasta')
 
-    write_repair_info(contig_info, repair_paths)
+    # Make a summary report
+    contig_info = ContigInfo(circular_contig_names, failed_contig_names, linear_contig_names)
+    write_repair_report(contig_info, repair_paths)
 
     # Clean up temp files
     os.remove(repair_paths.bam_filepath)
@@ -561,8 +547,9 @@ def log_repair_complete(contig_info, repair_paths):
     """
     Logs the completion of the repair process.
 
-    :param contig_info: an instance of the ContigInfo class containing information about repaired contigs
-    :param repair_paths: an instance of the RepairPaths class containing file paths used in the repair process
+    :param contig_info: ContigInfo object containing lists of the names of repair-passed, repair-failed, and linear
+                        contigs.
+    :param repair_paths: RepairPaths object containing paths to output files used in the repair process.
     """
     logger.info('End repair finished!')
     logger.info('#### Final stats: ####')
@@ -574,12 +561,13 @@ def log_repair_complete(contig_info, repair_paths):
                 f'A summary of repair work is saved at {repair_paths.end_repair_status_filepath}.')
 
 
-def write_repair_info(contig_info, repair_paths):
+def write_repair_report(contig_info, repair_paths):
     """
-    This method writes repair information to an info a TSV file.
+    This method writes a report of repair information to a TSV file.
 
-    :param contig_info: An object of type ContigInfo containing information about contigs.
-    :param repair_paths: An object of type RepairPaths containing paths to output files.
+    :param contig_info: ContigInfo object containing lists of the names of repair-passed, repair-failed, and linear
+                        contigs.
+    :param repair_paths: RepairPaths object containing paths to output files used in the repair process.
     """
     # Write info file of how contigs were repaired
     repair_info = pd.concat(
@@ -594,8 +582,8 @@ def repair_handle_failed_contigs(assembly_info: AssemblyInfo, repair_paths: Repa
     """
     Repair and handle failed contigs in the assembly.
 
-    :param assembly_info: An object containing information about the assembly.
-    :param repair_paths: An object containing repair paths.
+    :param assembly_info: AssemblyInfo object with files paths containing info about the input assembly.
+    :param repair_paths: RepairPaths object containing paths to output files used in the repair process.
     :param failed_contig_names: A list of names of contigs that could not be circularized.
     :param keep_failed_contigs: A boolean indicating whether to keep the original (non-repaired) versions of
                                 failed contigs in the final output file.
@@ -626,14 +614,17 @@ def repair_handle_failed_contigs(assembly_info: AssemblyInfo, repair_paths: Repa
         raise error
 
 
-def repair_no_circular_input_contigs(assembly: AssemblyInfo, repair_paths: RepairPaths):
+def repair_no_circular_input_contigs(assembly: AssemblyInfo, repair_paths: RepairPaths, linear_contig_names: list):
     """
     Handle repair when no circular contigs are found.
+
+    :param assembly: AssemblyInfo object with files paths containing info about the input assembly.
+    :param repair_paths: RepairPaths object containing paths to output files used in the repair process.
+    :param linear_contig_names: list of the names of non-circular contigs in the assembly info file
     """
     logger.info('No circular contigs. Will copy the input file, repaired_info.tsv, and finish early.')
     shutil.copyfile(assembly.assembly_fasta_filepath, repair_paths.end_repaired_contigs_filepath)
-    linear_contig_names = parse_assembly_info_file(assembly.assembly_info_filepath, assembly.assembly_info_type,
-                                                   return_type='linear')
+
     repair_info = pd.DataFrame({'contig': linear_contig_names, 'circular': 'N', 'repaired': 'N'})
     repair_info.to_csv(repair_paths.end_repair_status_filepath, sep='\t', index=False)
     logger.info('Pipeline finished.')
