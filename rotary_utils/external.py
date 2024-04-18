@@ -10,7 +10,6 @@ import subprocess
 
 import pandas as pd
 
-from rotary_utils.repair import logger
 from rotary_utils.utils import set_write_mode
 
 logger = logging.getLogger(__name__)

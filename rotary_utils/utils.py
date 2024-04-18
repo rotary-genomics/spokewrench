@@ -8,8 +8,6 @@ import sys
 
 from Bio import SeqIO
 
-from rotary_utils.external import logger
-
 logger = logging.getLogger(__name__)
 
 
