@@ -107,7 +107,7 @@ class RepairToolSettings:
 
 class AssemblyInfo:
     """
-    A class representing files paths containing info about the input assembly.
+    A class representing file paths containing info about the input assembly.
     """
 
     def __init__(self, assembly_fasta_filepath: str, assembly_info_filepath: str, assembly_info_type: str):
@@ -126,7 +126,7 @@ class AssemblyInfo:
 
 class RepairPaths:
     """
-    A class containing file paths that are used during the assembly repair process.
+    A class representing file paths that are used during the assembly repair process.
     """
 
     def __init__(self, output_dir: str):
@@ -157,7 +157,7 @@ class RepairPaths:
 
 class StitchDirectories:
     """
-    A class containing directory paths that are used during a single iteration of the assembly and stitch process.
+    A class representing directory paths that are used during a single iteration of the assembly and stitch process.
     """
 
     def __init__(self, linking_outdir: str, length_threshold: int = None, make_dirs: bool = False):
