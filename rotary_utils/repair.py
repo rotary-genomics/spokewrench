@@ -79,7 +79,7 @@ class RepairToolSettings:
     """
 
     def __init__(self, flye_read_mode: str, flye_read_error: float, circlator_min_id: float, circlator_min_length: int,
-                 circlator_ref_end: int, circlator_reassemble_end: int, threads: int, threads_mem: float):
+                 circlator_ref_end: int, circlator_reassemble_end: int, threads: int = 1, threads_mem: float = 1.0):
         """
         Instantiate a RepairToolSettings object.
 
