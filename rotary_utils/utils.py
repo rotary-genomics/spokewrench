@@ -6,6 +6,7 @@ import logging
 import os
 import sys
 
+import pandas as pd
 from Bio import SeqIO
 
 logger = logging.getLogger(__name__)
@@ -87,3 +88,33 @@ def load_fasta_sequences(fasta_filepath: str):
     with open(fasta_filepath) as fasta_handle:
         for record in SeqIO.parse(fasta_handle, 'fasta'):
             yield record
+
+
+def subset_sequences(input_fasta_filepath: str, subset_sequence_ids: list):
+    """
+    Given an input FastA file, subsets the file to the provided sequence IDs.
+
+    :param input_fasta_filepath: Path to the input FastA file
+    :param subset_sequence_ids: list of the names of sequences to keep. If any names in the list are not in the
+                                input file, the function will not return anything for those names. The function will
+                                raise an error if any duplicate sequence names are detected in the input FastA file.
+    :return: generator of a SeqRecord object for the subset sequences
+    """
+
+    try:
+        sequence_names = []
+        for record in load_fasta_sequences(input_fasta_filepath):
+            sequence_names.append(record.name)
+
+            if record.name in subset_sequence_ids:
+                yield record
+    finally:
+        # Raise an error if there are duplicate sequence names
+        if len(set(sequence_names)) < len(sequence_names):
+            sequence_names_series = pd.Series(sequence_names)
+            duplicates_names = set(sequence_names_series[sequence_names_series.duplicated() == True])
+
+            error = RuntimeError(f'Duplicate sequence IDs were detected in the input FastA file '
+                                 f'"{input_fasta_filepath}": {", ".join(duplicates_names)}')
+            logger.error(error)
+            raise error

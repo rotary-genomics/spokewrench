@@ -15,7 +15,7 @@ from Bio import SeqIO
 from rotary_utils.external import map_long_reads, subset_reads_from_bam, run_flye, run_circlator_merge, \
     check_circlator_success, check_dependencies
 from rotary_utils.rotate import rotate_sequences_wf
-from rotary_utils.utils import load_fasta_sequences
+from rotary_utils.utils import subset_sequences
 
 # GLOBAL VARIABLES
 DEPENDENCY_NAMES = ['flye', 'minimap2', 'samtools', 'circlator']
@@ -179,7 +179,7 @@ class StitchDirectories:
         self.length_threshold = length_threshold
 
         if length_threshold:
-            self.length_outdir = os.path.join(linking_outdir, 'tmp', f'L{length_threshold}')
+            self.length_outdir = os.path.join(linking_outdir, f'L{length_threshold}')
             self.log_dir = os.path.join(self.log_dir_base, f'L{length_threshold}')
         else:
             self.length_outdir = None
@@ -295,35 +295,6 @@ def parse_assembly_info_file(assembly_info_filepath: str, info_type: str):
     return contig_summary
 
 
-def subset_sequences(input_fasta_filepath: str, subset_sequence_ids: list):
-    """
-    Given an input FastA file, subsets the file to the provided sequence IDs.
-
-    :param input_fasta_filepath: Path to the input FastA file
-    :param subset_sequence_ids: list of the names of sequences to keep. If any names in the list are not in the
-                                input file, the function will not return anything for those names. The function will
-                                raise an error if any duplicate sequence names are detected in the input FastA file.
-    :return: generator of a SeqRecord object for the subset sequences
-    """
-
-    sequence_names = []
-    for record in load_fasta_sequences(input_fasta_filepath):
-        sequence_names.append(record.name)
-
-        if record.name in subset_sequence_ids:
-            yield record
-
-    # Raise an error if there are duplicate sequence names
-    if len(set(sequence_names)) < len(sequence_names):
-        sequence_names_series = pd.Series(sequence_names)
-        duplicates_names = set(sequence_names_series[sequence_names_series.duplicated() == True])
-
-        error = RuntimeError(f'Duplicate sequence IDs were detected in the input FastA file "{input_fasta_filepath}": '
-                             f'{", ".join(duplicates_names)}')
-        logger.error(error)
-        raise error
-
-
 def generate_bed_file(contig_seqrecord: SeqIO.SeqRecord, bed_filepath: str, length_threshold: int = 100000):
     """
     Generates a BED file for a desired region around the ends of a contig. Writes the BED file to the bed_filepath.
@@ -408,8 +379,11 @@ def link_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: str, length_o
         # Stitch the joined contig end onto the original assembly
         # TODO - sometimes small contigs are already rotated far from original origin. Stitch point is
         #        hard to find. Does circlator report stitch point?
-        circlator_min_length = override_circlator_min_length if override_circlator_min_length \
-            else tool_settings.circlator_min_length
+        if override_circlator_min_length:
+            circlator_min_length = override_circlator_min_length
+        else:
+            circlator_min_length = tool_settings.circlator_min_length
+
         run_circlator_merge(circular_contig_filepath=circular_contig_filepath,
                             patch_contig_filepath=os.path.join(flye_length_outdir, 'assembly.fasta'),
                             merge_outdir=merge_dir, circlator_min_id=tool_settings.circlator_min_id,
@@ -487,50 +461,62 @@ def iterate_linking_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: st
     stitch_dirs = StitchDirectories(linking_outdir)
     stitch_dirs.make_dirs()
 
-    # Keep trying to link the contig ends until successful or until all length thresholds have been attempted
+    # While loop: keep trying to link contig ends until successful or until all length thresholds have been attempted.
+    # Each assembly attempt is associated with 1 length threshold.
+    total_allowable_assembly_attempts = len(length_thresholds)
     assembly_attempts = 0
     linked_ends = False
     while linked_ends is False:
-        # Exit the function if all length thresholds have been tried
-        if assembly_attempts >= len(length_thresholds):
+        if assembly_attempts >= total_allowable_assembly_attempts:
             break
+            # Exit the function if all length thresholds have been tried.
 
+        # Get the length threshold associated with the current assembly attempt.
         length_threshold = length_thresholds[assembly_attempts]
 
-        # Don't attempt to link the ends if the contig is too short
         if len(contig_record.seq) <= length_threshold:
             logger.info(f'Skipping length threshold of {length_threshold} because '
                         f'contig is shorter than this length ({len(contig_record.seq)} bp)')
             assembly_attempts = assembly_attempts + 1
             continue
+            # If the contig is shorter than the given length threshold, continue on to the next length threshold and
+            # add 1 to the total number of assembly attempts.
 
         logger.info(f'Attempting reassembly with a length threshold of {length_threshold} bp')
         stitch_dirs.set_length_threshold(length_threshold)
         stitch_dirs.make_dirs()
         length_outdir = stitch_dirs.length_outdir
         log_dir = stitch_dirs.log_dir
+
         override_circlator_min_length = override_min_stitch_length(tool_settings.circlator_min_length, length_threshold)
         flye_exit_status = link_contig_ends(contig_record=contig_record, bam_filepath=bam_filepath,
                                             length_outdir=length_outdir, length_threshold=length_threshold,
                                             tool_settings=tool_settings, verbose_logfile=verbose_logfile,
                                             override_circlator_min_length=override_circlator_min_length)
         if flye_exit_status != 0:
+            shutil.rmtree(length_outdir)
             assembly_attempts = assembly_attempts + 1
             continue
+            # If the Flye assembler itself fails for some reason, continue on to the next length threshold and add 1
+            # to the total number of assembly attempts.
 
         # Copy important log files
         shutil.copy(os.path.join(length_outdir, 'assembly', 'assembly_info.txt'), log_dir)
         shutil.copy(os.path.join(length_outdir, 'merge', 'merge.circularise.log'), log_dir)
         shutil.copy(os.path.join(length_outdir, 'merge', 'merge.circularise_details.log'), log_dir)
 
-        if check_circlator_success(os.path.join(length_outdir, 'merge', 'merge.circularise.log')) is True:
+        if check_circlator_success(os.path.join(length_outdir, 'merge', 'merge.circularise.log')):
             logger.info('Successfully linked contig ends')
             process_successful_stitch(contig_id=contig_record.name, stitch_dirs=stitch_dirs)
             linked_ends = True
+            # Exit the while loop at the end of this iteration by setting length_ends to True, because the contig was
+            # correctly assembled and stitched.
 
+        shutil.rmtree(length_outdir)
         assembly_attempts = assembly_attempts + 1
-
-    shutil.rmtree(os.path.join(linking_outdir, 'tmp'))
+        # Whether or not the newly assembled end contig could be correctly stitched to the original contig, add 1 to
+        # the total number of assembly attempts.
+        # If linked_ends is not true by the end of this loop, then continue on to the next length threshold.
 
     return linked_ends
 
