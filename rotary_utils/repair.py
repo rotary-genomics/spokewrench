@@ -160,14 +160,12 @@ class StitchDirectories:
     A class containing directory paths that are used during a single iteration of the assembly and stitch process.
     """
 
-    def __init__(self, linking_outdir: str, length_threshold: int = None, make_dirs: bool = False):
+    def __init__(self, linking_outdir: str, length_threshold: int = None):
         """
         Instantiate a StitchPaths object.
 
         :param linking_outdir: output directory for the overall analysis.
         :param length_threshold: length (bp) that the original contig will be subset to for the given analysis.
-        :param make_dirs: if True, makes the directories whose paths are specified by the object, if the directories
-                          do not already exist.
         """
         """
         Description of constant attributes:
@@ -178,31 +176,37 @@ class StitchDirectories:
         """
         self.linking_outdir = linking_outdir
         self.log_dir_base = os.path.join(linking_outdir, 'logs')
-        if make_dirs:
-            os.makedirs(self.linking_outdir, exist_ok=True)
-            os.makedirs(self.log_dir_base, exist_ok=True)
+        self.length_threshold = length_threshold
 
         if length_threshold:
-            self.set_length_iteration_dirs(length_threshold, make_dirs=make_dirs)
+            self.length_outdir = os.path.join(linking_outdir, 'tmp', f'L{length_threshold}')
+            self.log_dir = os.path.join(self.log_dir_base, f'L{length_threshold}')
         else:
             self.length_outdir = None
             self.log_dir = None
 
-    def set_length_iteration_dirs(self, length_threshold: int, make_dirs: bool = False):
+    def length_threshold(self, length_threshold: int):
         """
-        Set names of directories to be created for a given length threshold
-
-        :param length_threshold: length (bp) that the original contig will be subset to for the given analysis.
-        :param make_dirs: if True, makes the directories whose paths are specified by the object, if the directories
-                          do not already exist.
+        Set a new length threshold. Associated directory names are also updated.
         """
+        if length_threshold < 0:
+            error = ValueError(f'Length threshold must be an integer >= 0; you provided {length_threshold}.')
+            logger.error(error)
+            raise error
 
+        self.length_threshold = length_threshold
         self.length_outdir = os.path.join(self.linking_outdir, 'tmp', f'L{length_threshold}')
         self.log_dir = os.path.join(self.log_dir_base, f'L{length_threshold}')
 
-        if make_dirs:
-            os.makedirs(self.length_outdir, exist_ok=True)
-            os.makedirs(self.log_dir, exist_ok=True)
+    def make_dirs(self):
+        """
+        Makes the directories whose paths are specified by the object, if the directories do not already exist.
+        """
+        expected_directories = [self.linking_outdir, self.log_dir_base, self.length_outdir, self.log_dir]
+
+        for directory in expected_directories:
+            if directory:
+                os.makedirs(directory, exist_ok=True)
 
 
 class ContigInfo:
