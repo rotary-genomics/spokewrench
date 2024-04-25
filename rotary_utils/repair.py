@@ -185,7 +185,7 @@ class StitchDirectories:
             self.length_outdir = None
             self.log_dir = None
 
-    def length_threshold(self, length_threshold: int):
+    def set_length_threshold(self, length_threshold: int):
         """
         Set a new length threshold. Associated directory names are also updated.
         """
@@ -484,7 +484,8 @@ def iterate_linking_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: st
     :return: boolean of whether end linkage was successful (True) or not (False).
     """
 
-    stitch_dirs = StitchDirectories(linking_outdir, make_dirs=True)
+    stitch_dirs = StitchDirectories(linking_outdir)
+    stitch_dirs.make_dirs()
 
     # Keep trying to link the contig ends until successful or until all length thresholds have been attempted
     assembly_attempts = 0
@@ -504,10 +505,13 @@ def iterate_linking_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: st
             continue
 
         logger.info(f'Attempting reassembly with a length threshold of {length_threshold} bp')
-        stitch_dirs.set_length_iteration_dirs(length_threshold, make_dirs=True)
+        stitch_dirs.set_length_threshold(length_threshold)
+        stitch_dirs.make_dirs()
+        length_outdir = stitch_dirs.length_outdir
+        log_dir = stitch_dirs.log_dir
         override_circlator_min_length = override_min_stitch_length(tool_settings.circlator_min_length, length_threshold)
         flye_exit_status = link_contig_ends(contig_record=contig_record, bam_filepath=bam_filepath,
-                                            length_outdir=stitch_dirs.length_outdir, length_threshold=length_threshold,
+                                            length_outdir=length_outdir, length_threshold=length_threshold,
                                             tool_settings=tool_settings, verbose_logfile=verbose_logfile,
                                             override_circlator_min_length=override_circlator_min_length)
         if flye_exit_status != 0:
@@ -515,12 +519,11 @@ def iterate_linking_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: st
             continue
 
         # Copy important log files
-        shutil.copy(os.path.join(stitch_dirs.length_outdir, 'assembly', 'assembly_info.txt'), stitch_dirs.log_dir)
-        shutil.copy(os.path.join(stitch_dirs.length_outdir, 'merge', 'merge.circularise.log'), stitch_dirs.log_dir)
-        shutil.copy(os.path.join(stitch_dirs.length_outdir, 'merge', 'merge.circularise_details.log'),
-                    stitch_dirs.log_dir)
+        shutil.copy(os.path.join(length_outdir, 'assembly', 'assembly_info.txt'), log_dir)
+        shutil.copy(os.path.join(length_outdir, 'merge', 'merge.circularise.log'), log_dir)
+        shutil.copy(os.path.join(length_outdir, 'merge', 'merge.circularise_details.log'), log_dir)
 
-        if check_circlator_success(os.path.join(stitch_dirs.length_outdir, 'merge', 'merge.circularise.log')) is True:
+        if check_circlator_success(os.path.join(length_outdir, 'merge', 'merge.circularise.log')) is True:
             logger.info('Successfully linked contig ends')
             process_successful_stitch(contig_id=contig_record.name, stitch_dirs=stitch_dirs)
             linked_ends = True
