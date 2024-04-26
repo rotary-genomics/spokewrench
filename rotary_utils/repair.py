@@ -177,7 +177,7 @@ class StitchDirectories:
             raise error
 
         self.length_threshold = length_threshold
-        self.length_outdir = os.path.join(self.linking_outdir, 'tmp', f'L{length_threshold}')
+        self.length_outdir = os.path.join(self.linking_outdir, f'L{length_threshold}')
         self.log_dir = os.path.join(self.log_dir_base, f'L{length_threshold}')
 
     def make_dirs(self):
