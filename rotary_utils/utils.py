@@ -6,7 +6,6 @@ import logging
 import os
 import sys
 
-import pandas as pd
 from Bio import SeqIO
 
 logger = logging.getLogger(__name__)
@@ -101,20 +100,20 @@ def subset_sequences(input_fasta_filepath: str, subset_sequence_ids: list):
     :return: generator of a SeqRecord object for the subset sequences
     """
 
-    try:
-        sequence_names = []
-        for record in load_fasta_sequences(input_fasta_filepath):
-            sequence_names.append(record.name)
+    sequence_names = set()
+    for record in load_fasta_sequences(input_fasta_filepath):
+        new_sequence_name = record.name
 
-            if record.name in subset_sequence_ids:
-                yield record
-    finally:
-        # Raise an error if there are duplicate sequence names
-        if len(set(sequence_names)) < len(sequence_names):
-            sequence_names_series = pd.Series(sequence_names)
-            duplicates_names = set(sequence_names_series[sequence_names_series.duplicated() == True])
-
-            error = RuntimeError(f'Duplicate sequence IDs were detected in the input FastA file '
-                                 f'"{input_fasta_filepath}": {", ".join(duplicates_names)}')
+        # Duplicate error handling so the generator breaks when any duplicate IDs (i.e., IDs that have been seen before)
+        # are found.
+        if new_sequence_name in sequence_names:
+            error = RuntimeError(f'Duplicate sequence ID was detected in the input FastA file '
+                                 f'"{input_fasta_filepath}": "{new_sequence_name}".')
             logger.error(error)
             raise error
+
+        sequence_names.add(new_sequence_name)
+
+        if record.name in subset_sequence_ids:
+            yield record
+

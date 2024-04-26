@@ -14,7 +14,7 @@ from Bio import SeqIO
 
 from rotary_utils.external import map_long_reads, subset_reads_from_bam, run_flye, run_circlator_merge, \
     check_circlator_success, check_dependencies
-from rotary_utils.rotate import rotate_sequences_wf
+from rotary_utils.rotate import rotate_sequences
 from rotary_utils.assembly import AssemblyInfo, parse_assembly_info_file
 from rotary_utils.utils import subset_sequences
 
@@ -348,10 +348,10 @@ def process_successful_stitch(contig_id, stitch_dirs):
     """
 
     # Rotate to midpoint
-    rotate_sequences_wf(fasta_filepath=os.path.join(stitch_dirs.length_outdir, 'merge', 'merge.fasta'),
-                        output_filepath=os.path.join(stitch_dirs.linking_outdir, 'stitched.fasta'),
-                        rotate_type='fraction', rotate_value_single=0.5, max_sequences_in_file=1, append=False,
-                        strip_descriptions=True)
+    rotate_sequences(fasta_filepath=os.path.join(stitch_dirs.length_outdir, 'merge', 'merge.fasta'),
+                     output_filepath=os.path.join(stitch_dirs.linking_outdir, 'stitched.fasta'),
+                     rotate_type='fraction', rotate_value_single=0.5, max_sequences_in_file=1, append=False,
+                     strip_descriptions=True)
 
     # Save a copy of the final circlator merge logfile in the main log directory
     shutil.copy(os.path.join(stitch_dirs.length_outdir, 'merge', 'merge.circularise_details.log'),
@@ -379,21 +379,21 @@ def iterate_linking_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: st
 
     # While loop: keep trying to link contig ends until successful or until all length thresholds have been attempted.
     # Each assembly attempt is associated with 1 length threshold.
-    total_allowable_assembly_attempts = len(length_thresholds)
-    assembly_attempts = 0
+    total_assembly_length_attempts_to_try = len(length_thresholds)
+    assembly_length_attempts = 0
     linked_ends = False
     while linked_ends is False:
-        if assembly_attempts >= total_allowable_assembly_attempts:
+        if assembly_length_attempts >= total_assembly_length_attempts_to_try:
             break
             # Exit the function if all length thresholds have been tried.
 
         # Get the length threshold associated with the current assembly attempt.
-        length_threshold = length_thresholds[assembly_attempts]
+        length_threshold = length_thresholds[assembly_length_attempts]
 
         if len(contig_record.seq) <= length_threshold:
             logger.info(f'Skipping length threshold of {length_threshold} because '
                         f'contig is shorter than this length ({len(contig_record.seq)} bp)')
-            assembly_attempts = assembly_attempts + 1
+            assembly_length_attempts = assembly_length_attempts + 1
             continue
             # If the contig is shorter than the given length threshold, continue on to the next length threshold and
             # add 1 to the total number of assembly attempts.
@@ -411,7 +411,7 @@ def iterate_linking_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: st
                                             override_circlator_min_length=override_circlator_min_length)
         if flye_exit_status != 0:
             shutil.rmtree(length_outdir)
-            assembly_attempts = assembly_attempts + 1
+            assembly_length_attempts = assembly_length_attempts + 1
             continue
             # If the Flye assembler itself fails for some reason, continue on to the next length threshold and add 1
             # to the total number of assembly attempts.
@@ -429,7 +429,7 @@ def iterate_linking_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: st
             # correctly assembled and stitched.
 
         shutil.rmtree(length_outdir)
-        assembly_attempts = assembly_attempts + 1
+        assembly_length_attempts = assembly_length_attempts + 1
         # Whether or not the newly assembled end contig could be correctly stitched to the original contig, add 1 to
         # the total number of assembly attempts.
         # If linked_ends is not true by the end of this loop, then continue on to the next length threshold.
