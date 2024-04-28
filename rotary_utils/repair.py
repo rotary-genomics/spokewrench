@@ -153,8 +153,6 @@ class StitchDirectories:
         Description of constant attributes:
             linking_outdir: output directory for the overall analysis.
             log_dir_base: directory where key log files will be saved.
-            length_outdir: output directory for a specific length threshold.
-            log_dir: directory where log files for a specific length threshold will be saved.
         """
         self.linking_outdir = linking_outdir
         self.log_dir_base = os.path.join(linking_outdir, 'logs')
@@ -182,7 +180,7 @@ class StitchDirectories:
     @property
     def length_outdir(self):
         """
-        A property representing a length directory path.
+        A property representing a path to the output directory for a specific length threshold.
         """
         if self.length_threshold:
             length_outdir = os.path.join(self.linking_outdir, f'L{self.length_threshold}')
@@ -194,7 +192,7 @@ class StitchDirectories:
     @property
     def log_dir(self):
         """
-        A property representing a log directory path.
+        A property representing a path to the directory where log files for a specific length threshold will be saved.
         """
         if self.length_threshold:
             log_dir = os.path.join(self.log_dir_base, f'L{self.length_threshold}')
