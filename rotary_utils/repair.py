@@ -170,10 +170,11 @@ class StitchDirectories:
         """
         Set a new length threshold.
         """
-        if length_threshold < 0:
-            error = ValueError(f'Length threshold must be an integer >= 0; you provided {length_threshold}.')
-            logger.error(error)
-            raise error
+        if length_threshold:
+            if length_threshold < 0:
+                error = ValueError(f'Length threshold must be an integer >= 0; you provided {length_threshold}.')
+                logger.error(error)
+                raise error
 
         self._current_length_threshold = length_threshold
 
