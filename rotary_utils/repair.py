@@ -158,27 +158,50 @@ class StitchDirectories:
         """
         self.linking_outdir = linking_outdir
         self.log_dir_base = os.path.join(linking_outdir, 'logs')
-        self.length_threshold = length_threshold
+        self._current_length_threshold = length_threshold
 
-        if length_threshold:
-            self.length_outdir = os.path.join(linking_outdir, f'L{length_threshold}')
-            self.log_dir = os.path.join(self.log_dir_base, f'L{length_threshold}')
-        else:
-            self.length_outdir = None
-            self.log_dir = None
-
-    def set_length_threshold(self, length_threshold: int):
+    @property
+    def length_threshold(self):
         """
-        Set a new length threshold. Associated directory names are also updated.
+        A property representing the length threshold.
+        """
+        return self._current_length_threshold
+
+    @length_threshold.setter
+    def length_threshold(self, length_threshold: int):
+        """
+        Set a new length threshold.
         """
         if length_threshold < 0:
             error = ValueError(f'Length threshold must be an integer >= 0; you provided {length_threshold}.')
             logger.error(error)
             raise error
 
-        self.length_threshold = length_threshold
-        self.length_outdir = os.path.join(self.linking_outdir, f'L{length_threshold}')
-        self.log_dir = os.path.join(self.log_dir_base, f'L{length_threshold}')
+        self._current_length_threshold = length_threshold
+
+    @property
+    def length_outdir(self):
+        """
+        A property representing a length directory path.
+        """
+        if self.length_threshold:
+            length_outdir = os.path.join(self.linking_outdir, f'L{self.length_threshold}')
+        else:
+            length_outdir = None
+
+        return length_outdir
+
+    @property
+    def log_dir(self):
+        """
+        A property representing a log directory path.
+        """
+        if self.length_threshold:
+            log_dir = os.path.join(self.log_dir_base, f'L{self.length_threshold}')
+        else:
+            log_dir = None
+
+        return log_dir
 
     def make_dirs(self):
         """
@@ -195,6 +218,7 @@ class ContigInfo:
     """
     A class containing contig names from an assembly, separated into lists based on their repair outcomes.
     """
+
     def __init__(self, circular_contig_names: list, failed_contig_names: list, linear_contig_names: list):
         """
         Instantiate a ContigInfo object.
@@ -399,7 +423,7 @@ def iterate_linking_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: st
             # add 1 to the total number of assembly attempts.
 
         logger.info(f'Attempting reassembly with a length threshold of {length_threshold} bp')
-        stitch_dirs.set_length_threshold(length_threshold)
+        stitch_dirs.length_threshold = length_threshold
         stitch_dirs.make_dirs()
         length_outdir = stitch_dirs.length_outdir
         log_dir = stitch_dirs.log_dir
