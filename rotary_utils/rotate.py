@@ -58,29 +58,29 @@ def main(args):
 
     # Perform the rotate operation based on which of the rotate arguments was specified by the user
     if args.midpoint is True:
-        report = rotate_sequences_wf(args.input_fasta, args.output_fasta, rotate_type='fraction',
-                                     rotate_value_single=0.5, sequence_names=sequence_names,
-                                     strip_descriptions=args.strip_descriptions)
+        report = rotate_sequences(args.input_fasta, args.output_fasta, rotate_type='fraction',
+                                  rotate_value_single=0.5, sequence_names=sequence_names,
+                                  strip_descriptions=args.strip_descriptions)
     elif args.rotate_position is not None:
-        report = rotate_sequences_wf(args.input_fasta, args.output_fasta, rotate_type='position',
-                                     rotate_value_single=args.rotate_position, sequence_names=sequence_names,
-                                     strip_descriptions=args.strip_descriptions)
+        report = rotate_sequences(args.input_fasta, args.output_fasta, rotate_type='position',
+                                  rotate_value_single=args.rotate_position, sequence_names=sequence_names,
+                                  strip_descriptions=args.strip_descriptions)
     elif args.rotate_fraction is not None:
-        report = rotate_sequences_wf(args.input_fasta, args.output_fasta, rotate_type='fraction',
-                                     rotate_value_single=args.rotate_fraction, sequence_names=sequence_names,
-                                     strip_descriptions=args.strip_descriptions)
+        report = rotate_sequences(args.input_fasta, args.output_fasta, rotate_type='fraction',
+                                  rotate_value_single=args.rotate_fraction, sequence_names=sequence_names,
+                                  strip_descriptions=args.strip_descriptions)
     elif args.rotate_position_table is not None:
         rotate_values_dict = parse_rotate_value_table(args.rotate_position_table, rotate_type='position')
 
-        report = rotate_sequences_wf(args.input_fasta, args.output_fasta, rotate_type='position',
-                                     rotate_values=rotate_values_dict, sequence_names=sequence_names,
-                                     strip_descriptions=args.strip_descriptions)
+        report = rotate_sequences(args.input_fasta, args.output_fasta, rotate_type='position',
+                                  rotate_values=rotate_values_dict, sequence_names=sequence_names,
+                                  strip_descriptions=args.strip_descriptions)
     elif args.rotate_fraction_table is not None:
         rotate_values_dict = parse_rotate_value_table(args.rotate_fraction_table, rotate_type='fraction')
 
-        report = rotate_sequences_wf(args.input_fasta, args.output_fasta, rotate_type='fraction',
-                                     rotate_values=rotate_values_dict, sequence_names=sequence_names,
-                                     strip_descriptions=args.strip_descriptions)
+        report = rotate_sequences(args.input_fasta, args.output_fasta, rotate_type='fraction',
+                                  rotate_values=rotate_values_dict, sequence_names=sequence_names,
+                                  strip_descriptions=args.strip_descriptions)
 
     else:
         raise RuntimeError('Could not find any rotate commands to execute.')
@@ -260,9 +260,9 @@ def rotate_sequence_to_fraction(sequence_record: SeqIO.SeqRecord, rotate_fractio
     return sequence_record
 
 
-def rotate_sequences_wf(fasta_filepath: str, output_filepath: str, rotate_type: str, rotate_values: dict = None,
-                        rotate_value_single: float = None, sequence_names: list = None, max_sequences_in_file: int = 0,
-                        append: bool = False, strip_descriptions: bool = True):
+def rotate_sequences(fasta_filepath: str, output_filepath: str, rotate_type: str, rotate_values: dict = None,
+                     rotate_value_single: float = None, sequence_names: list = None, max_sequences_in_file: int = 0,
+                     append: bool = False, strip_descriptions: bool = True):
     """
     Rotates all (circular) sequences in an input FastA file to specified positions or fractions.
 
