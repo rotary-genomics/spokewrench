@@ -12,11 +12,11 @@ import sys
 import pandas as pd
 from Bio import SeqIO
 
-from rotary_utils.external import map_long_reads, subset_reads_from_bam, run_flye, run_circlator_merge, \
+from spokewrench.external import map_long_reads, subset_reads_from_bam, run_flye, run_circlator_merge, \
     check_circlator_success, check_dependencies
-from rotary_utils.rotate import rotate_sequences
-from rotary_utils.assembly import AssemblyInfo, parse_assembly_info_file
-from rotary_utils.utils import subset_sequences
+from spokewrench.rotate import rotate_sequences
+from spokewrench.assembly import AssemblyInfo, parse_assembly_info_file
+from spokewrench.utils import subset_sequences
 
 # GLOBAL VARIABLES
 DEPENDENCY_NAMES = ['flye', 'minimap2', 'samtools', 'circlator']

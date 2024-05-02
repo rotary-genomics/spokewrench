@@ -1,5 +1,5 @@
 package:
-  name: rotary-utils
+  name: spokewrench
   version: "0.1.0"
 
 source:
@@ -18,9 +18,9 @@ build:
 
 test:
   commands:
-    - rotary-utils -h
+    - spokewrench -h
 
 about:
-  home: https://github.com/rotary-genomics/rotary-utils
+  home: https://github.com/rotary-genomics/spokewrench
   license: BSD 3
   license_file: LICENSE

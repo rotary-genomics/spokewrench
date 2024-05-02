@@ -1,5 +1,5 @@
 [project]
-name = "rotary-utils"
+name = "spokewrench"
 version = "0.1.0"
 description = """Command-line utilities for manipulating genome or metagenome data with circular DNA elements. These
 utilities integrate with the Rotary pipeline."""
@@ -24,7 +24,7 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project.scripts]
-rotary-utils = "rotary_utils.rotary_utils:main"
+spokewrench = "spokewrench.spokewrench:main"
 
 [tool.setuptools]
 include-package-data = true

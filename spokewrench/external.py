@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # external.py
-# Code for handling external CLI applications used by rotary-utils (e.g. flye)
+# Code for handling external CLI applications used by spokewrench (e.g. flye)
 # Copyright Jackson M. Tsuji and Lee H. Bergstrand 2024
 import logging
 import os
@@ -10,7 +10,7 @@ import subprocess
 
 import pandas as pd
 
-from rotary_utils.utils import set_write_mode
+from spokewrench.utils import set_write_mode
 
 logger = logging.getLogger(__name__)
 

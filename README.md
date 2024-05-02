@@ -1,34 +1,34 @@
-# rotary-utils
+# spokewrench
 Circularization-related utilities for the rotary pipeline
 
 ## Overview
-*rotary-utils*, currently under development, is a suite of utilities for manipulating circular DNA elements.
+*spokewrench*, currently under development, is a suite of utilities for manipulating circular DNA elements.
 Once completed, these utilities will be able to serve as a modern replacement for
 [circlator](https://github.com/sanger-pathogens/circlator), which is now in a frozen development state.
-The utilities in *rotary-utils* are built into the [*rotary* project](https://github.com/rotary-genomics/rotary),
+The utilities in *spokewrench* are built into the [*rotary* project](https://github.com/rotary-genomics/rotary),
 where they are used with "best practices" to ensure proper assembly of circular sequences. These utilities can also
 be used in a standalone fashion or integrated into custom genome assembly workflows to ensure circular DNA/RNA elements
 are assembled accurately, similarly to how circlator is currently used.
 
 ## Requirements
 - OS: Runs on Linux (tested on Ubuntu 20.04 and Ubuntu 22.04) and macOS (tested on Sonoma 14)
-- Software: requires miniconda or manual installation using the dependencies shown in rotary-utils/environment.yml
+- Software: requires miniconda or manual installation using the dependencies shown in spokewrench/environment.yml
 - Resources: should run on a modern laptop with >=8 GB RAM and >=4 CPU threads, in most cases
 
 ## Installation
 ```bash
-git clone https://github.com/rotary-genomics/rotary-utils.git
+git clone https://github.com/rotary-genomics/spokewrench.git
 
-conda env create -n rotary_utils --file=rotary-utils/environment.yml
+conda env create -n spokewrench --file=spokewrench/environment.yml
 
-conda activate rotary_utils
+conda activate spokewrench
 
-cd rotary-utils
+cd spokewrench
 
 pip install --editable .
 
 # See available commands
-rotary-utils -h
+spokewrench -h
 ```
 
 ## Modules
@@ -37,10 +37,10 @@ Run on the outputs of Flye to repair the
 [short gap or overlap region](https://github.com/fenderglass/Flye/issues/315#issuecomment-720679812) that can occur at
 the ends of circular contigs produced by this assembly tool.
 
-Help menu (`rotary-utils repair -h`):
+Help menu (`spokewrench repair -h`):
 ```commandline
-usage: rotary-utils repair [-h] [-lf PATH] [-O] [-v] -l PATH -a PATH -i PATH -o PATH [-f MODE] [-F FRACTION] [-I PERCENT] [-L LENGTH] [-e LENGTH] [-E LENGTH] [-k] [-c]
-                           [-T LIST] [-t JOBS] [-m GB]
+usage: spokewrench repair [-h] [-lf PATH] [-O] [-v] -l PATH -a PATH -i PATH -o PATH [-f MODE] [-F FRACTION] [-I PERCENT] [-L LENGTH] [-e LENGTH] [-E LENGTH] [-k] [-c]
+                          [-T LIST] [-t JOBS] [-m GB]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -97,9 +97,9 @@ Workflow options:
 ### `rotate`
 Support module for rotating DNA sequences in FastA files.
 
-Help menu (`rotary-utils rotate -h`):
+Help menu (`spokewrench rotate -h`):
 ```commandline
-usage: rotary-utils rotate [-h] [-lf PATH] [-O] [-v] -i PATH -o PATH [-m] [-p INT] [-P FLOAT] [-t PATH] [-T PATH] [-n LIST] [-r PATH] [-s]
+usage: spokewrench rotate [-h] [-lf PATH] [-O] [-v] -i PATH -o PATH [-m] [-p INT] [-P FLOAT] [-t PATH] [-T PATH] [-n LIST] [-r PATH] [-s]
 
 optional arguments:
   -h, --help            show this help message and exit
