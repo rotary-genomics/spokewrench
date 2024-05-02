@@ -1,0 +1,26 @@
+package:
+  name: spokewrench
+  version: "0.1.0"
+
+source:
+  path: .
+
+requirements:
+  host:
+    - python
+    - pip
+  run:
+    - pandas=1.4
+    - biopython=1.81
+
+build:
+  script: pip install .
+
+test:
+  commands:
+    - spokewrench -h
+
+about:
+  home: https://github.com/rotary-genomics/spokewrench
+  license: BSD 3
+  license_file: LICENSE

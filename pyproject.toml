@@ -1,0 +1,30 @@
+[project]
+name = "spokewrench"
+version = "0.1.0"
+description = """Command-line utilities for manipulating genome or metagenome data with circular DNA elements. These
+utilities integrate with the Rotary pipeline."""
+authors = [
+    {name = "Jackson M. Tsuji"},
+    {name = "Lee H. Bergstrand"}
+]
+
+license = {file = "LICENSE"}
+readme = "README.md"
+
+dependencies = [
+    "biopython ~=1.81",
+    "pandas ~=1.4"
+]
+
+[tool.setuptools.packages]
+find = {}
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project.scripts]
+spokewrench = "spokewrench.spokewrench:main"
+
+[tool.setuptools]
+include-package-data = true
