@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # utils.py
-# Utility function within rotary-utils
+# Utility functions within spokewrench
 # Copyright Jackson M. Tsuji and Lee H. Bergstrand 2024
 import logging
 import os

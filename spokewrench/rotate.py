@@ -12,7 +12,7 @@ import math
 from Bio import SeqIO
 import pandas as pd
 
-from rotary_utils.utils import check_output_file, set_write_mode, load_fasta_sequences
+from spokewrench.utils import check_output_file, set_write_mode, load_fasta_sequences
 
 logger = logging.getLogger(__name__)
 

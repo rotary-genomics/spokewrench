@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-Description: A command-line interface for the Rotary-utils toolkit.
+Description: A command-line interface for the spokewrench toolkit.
 Copyright: Jackson M. Tsuji and Lee H. Bergstrand 2024
 """
 
@@ -9,11 +9,11 @@ import os
 import logging
 import argparse
 
-from rotary_utils.utils import check_output_file, set_up_output_directory
-from rotary_utils.rotate import main as rotate_main
-from rotary_utils.rotate import subparse_cli as subparse_rotate_cli
-from rotary_utils.repair import main as repair_main
-from rotary_utils.repair import subparse_cli as subparse_repair_cli
+from spokewrench.utils import check_output_file, set_up_output_directory
+from spokewrench.rotate import main as rotate_main
+from spokewrench.rotate import subparse_cli as subparse_rotate_cli
+from spokewrench.repair import main as repair_main
+from spokewrench.repair import subparse_cli as subparse_repair_cli
 
 
 def main():
@@ -23,7 +23,7 @@ def main():
 
     """
     When installing through pip with pyprojects.toml a new python script is generated
-    that calls main() out of rotary_utils.py. Run parser inside main() so it can be called 
+    that calls main() out of spokewrench.py. Run parser inside main() so it can be called 
     externally as a function.
     """
     parser = parse_cli()
@@ -78,8 +78,7 @@ def parse_cli():
     Parses the CLI arguments.
     :return: An argparse parser object.
     """
-    cli_title = """Utilities for manipulating genome or metagenome data with circular DNA elements. These
-                   utilities integrate with the Rotary pipeline."""
+    cli_title = """Utilities for manipulating genome or metagenome data with circular DNA elements."""
     parser = argparse.ArgumentParser(description=cli_title)
     subparsers = parser.add_subparsers(help='Available Sub-commands')
 
