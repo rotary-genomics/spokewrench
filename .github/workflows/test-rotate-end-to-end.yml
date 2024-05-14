@@ -1,0 +1,28 @@
+name: test-rotate-end-to-end
+on: pull_request_review
+
+jobs:
+  install:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ "ubuntu-latest", "macos-latest" ]
+    steps:
+      - name: checkout repo
+        uses: actions/checkout@v4
+      - name: create conda env
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          python-version: 3.9
+          channels: conda-forge,bioconda,defaults
+          environment-file: .github/envs/test-rotate.yml
+          activate-environment: test-rotate
+          auto-activate-base: false
+      - name: install spokewrench
+        shell: bash -el {0}
+        run: pip install --editable .
+      - name: test install of spokewrench rotate
+        shell: bash -el {0}
+        run: spokewrench rotate -h
