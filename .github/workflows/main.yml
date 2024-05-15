@@ -1,7 +1,8 @@
+name: End-to-end tests
 on: [pull_request, pull_request_review, workflow_dispatch]
 
 jobs:
-  end-to-end-tests:
+  main:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
