@@ -30,5 +30,9 @@ jobs:
       - name: run rotate module test
         shell: bash -el {0}
         run: |
-          ./tests/rotate/test-rotate-end-to-end.sh ./tests/rotate/input/input.fasta ./tests/rotate/input/guide-positions.tsv \
-            ./tests/rotate/input/guide-fractions.tsv ./tests/rotate/expected ./tests/rotate/actual
+          ./tests/rotate/test-rotate-end-to-end.sh \
+            ./tests/rotate/input/input.fasta \
+            ./tests/rotate/input/guide-positions.tsv \
+            ./tests/rotate/input/guide-fractions.tsv \
+            ./tests/rotate/expected \
+            ./tests/rotate/actual

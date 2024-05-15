@@ -146,3 +146,20 @@ Workflow options:
   -s, --strip_descriptions
                         Strip descriptions off FastA headers (i.e., any text after the first whitespace in each header)
 ```
+
+## Testing
+Automated end-to-end tests are available for some modules, for development purposes. These tests are run automatically
+by GitHub Actions during pull requests, as specified in `.github/workflows` in this repo.
+
+Manual run code for these end-to-end tests are provided below. Note that `spokewrench` must be installed for these
+tests to run.
+
+### Rotate
+```bash
+git clone https://github.com/rotary-genomics/spokewrench.git
+
+cd spokewrench/tests/rotate
+
+./test-rotate-end-to-end.sh input/input.fasta input/guide-positions.tsv input/guide-fractions.tsv \
+  tests/rotate/expected tests/rotate/actual
+```
