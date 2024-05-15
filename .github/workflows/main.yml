@@ -1,8 +1,8 @@
-name: spokewrench-install
+name: spokewrench-end-to-end-test
 on: [pull_request, pull_request_review, workflow_dispatch]
 
 jobs:
-  install:
+  install-and-test:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -27,16 +27,7 @@ jobs:
       - name: test install of spokewrench rotate
         shell: bash -el {0}
         run: spokewrench -h
-
-  test-rotate-end-to-end:
-    needs: install
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ "ubuntu-latest", "macos-latest" ]
-    steps:
-      - name: run rotate test
+      - name: run rotate module test
         shell: bash -el {0}
         run: |
           tests/rotate/test-rotate-end-to-end.sh tests/rotate/input/input.fasta tests/rotate/input/guide-positions.tsv \
