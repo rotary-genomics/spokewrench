@@ -1,5 +1,5 @@
 name: End-to-end tests
-on: [pull_request, pull_request_review, workflow_dispatch]
+on: [pull_request, pull_request_review]
 
 jobs:
   main:
