@@ -1,4 +1,4 @@
-name: test-rotate-end-to-end
+name: spokewrench-install
 on: [pull_request, pull_request_review]
 
 jobs:
@@ -17,12 +17,12 @@ jobs:
           auto-update-conda: true
           python-version: 3.9
           channels: conda-forge,bioconda,defaults
-          environment-file: .github/envs/test-rotate.yml
-          activate-environment: test-rotate
+          environment-file: .github/envs/spokewrench.yml
+          activate-environment: spokewrench
           auto-activate-base: false
       - name: install spokewrench
         shell: bash -el {0}
         run: pip install --editable .
       - name: test install of spokewrench rotate
         shell: bash -el {0}
-        run: spokewrench rotate -h
+        run: spokewrench -h

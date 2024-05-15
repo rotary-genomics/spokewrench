@@ -1,4 +1,4 @@
-name: test-rotate
+name: spokewrench
 channels:
   - conda-forge
   - bioconda
@@ -7,4 +7,9 @@ dependencies:
   - python=3.9.*
   - pandas=1.4.*
   - biopython=1.81
+  - circlator=1.5.5
+  - flye=2.9
+  - minimap2=2.23
+  - samtools=1.15
+  - mummer4
   - pip
