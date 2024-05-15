@@ -61,13 +61,13 @@ spokewrench rotate -i "${input_fasta}" -o "${output_dir}/test1c.fasta" -r "${out
 # Test 1d: confirm that multiple rotation arguments makes the tool fail (should fail)
 spokewrench rotate -i "${input_fasta}" -o "${output_dir}/test1d.fasta" -r "${output_dir}/test1d.tsv" -v -m -p 1 2> "${output_dir}/test1d.log"; echo $? > "${output_dir}/test1d.exit"
 # Test 1e: confirm the tool fails when an output FastA file is already present (should fail)
-cp actual/test1a.fasta actual/test1e.copied.fasta
+cp "${output_dir}/test1a.fasta" "${output_dir}/test1e.copied.fasta"
 spokewrench rotate -i "${input_fasta}" -o "${output_dir}/test1e.copied.fasta" -r "${output_dir}/test1e.tsv" -v -m 2> "${output_dir}/test1e.log"; echo $? > "${output_dir}/test1e.exit"
 # Test 1f: confirm the tool fails when an output TSV file is already present (should fail)
-cp actual/test1a.tsv actual/test1f.copied.tsv
+cp "${output_dir}/test1a.tsv" "${output_dir}/test1f.copied.tsv"
 spokewrench rotate -i "${input_fasta}" -o "${output_dir}/test1f.fasta" -r "${output_dir}/test1f.copied.tsv" -v -m 2> "${output_dir}/test1f.log"; echo $? > "${output_dir}/test1f.exit"
 # Test 1g: confirm the tool can continue when an output file is present but the overwrite flag is supplied (should finish)
-echo "Example text" > actual/test1g.fasta
+echo "Example text" > "${output_dir}/test1g.fasta"
 spokewrench rotate -i "${input_fasta}" -o "${output_dir}/test1g.fasta" -r "${output_dir}/test1g.tsv" -v -m -O 2> "${output_dir}/test1g.log"; echo $? > "${output_dir}/test1g.exit"
 
 # Test series 2: rotate by common position
