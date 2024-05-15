@@ -1,0 +1,4 @@
+sequence_id	sequence_length_bp	rotate_type	rotate_value
+sequence1	20	position	0
+sequence2	12	position	0
+sequence3	8	position	5

@@ -1,0 +1,4 @@
+sequence_id	sequence_length_bp	rotate_type	rotate_value
+sequence1	20	fraction	0.1
+sequence2	12	fraction	0.0
+sequence3	8	fraction	0.9

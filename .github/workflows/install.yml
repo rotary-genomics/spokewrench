@@ -27,3 +27,17 @@ jobs:
       - name: test install of spokewrench rotate
         shell: bash -el {0}
         run: spokewrench -h
+
+  test-rotate-end-to-end:
+    needs: install
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ "ubuntu-latest", "macos-latest" ]
+    steps:
+      - name: run rotate test
+        shell: bash -el {0}
+        run: |
+          tests/rotate/test-rotate-end-to-end.sh tests/rotate/input/input.fasta tests/rotate/input/guide-positions.tsv \
+            tests/rotate/input/guide-fractions.tsv tests/rotate/expected tests/rotate/actual

@@ -20,6 +20,8 @@ are assembled accurately, similarly to how circlator is currently used.
 git clone https://github.com/rotary-genomics/spokewrench.git
 
 conda env create -n spokewrench --file=spokewrench/environment.yml
+# Note: On Macs with Apple Silicon, you might need to add the flag '--platform osx-64' to force x64 install.
+#       The installed packages will then be converted to ARM architecture using Rosetta on first use.
 
 conda activate spokewrench
 
