@@ -162,6 +162,5 @@ git clone https://github.com/rotary-genomics/spokewrench.git
 
 cd spokewrench/tests/rotate
 
-./test-rotate-end-to-end.sh input/input.fasta input/guide-positions.tsv input/guide-fractions.tsv \
-  tests/rotate/expected tests/rotate/actual
+./test-rotate-end-to-end.sh input/input.fasta input/guide-positions.tsv input/guide-fractions.tsv expected actual
 ```
