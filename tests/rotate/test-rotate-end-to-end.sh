@@ -142,37 +142,29 @@ spokewrench rotate -i "${input_fasta}" -o "${output_dir}/test4c.fasta" -r "${out
 
 set -e
 
-# See if all expected output files were generated
-find "${output_dir}" -name "*.fasta" -or -name "*.tsv" -or -name "*.exit" | grep -v "copied" | \
-  sed -e "s|^${output_dir}/||g" | sort -h > "${output_dir}/outputs.list"
-find "${expected_dir}" -name "*.fasta" -or -name "*.tsv" -or -name "*.exit" | grep -v "copied" | \
-  sed -e "s|^${expected_dir}/||g" | sort -h > "${output_dir}/expected.list"
-set +e
-cmp_status=$(cmp "${output_dir}/outputs.list" "${output_dir}/expected.list" >/dev/null 2>&1 && echo $?)
-set -e
-if [[ "${cmp_status}" != 0 ]]; then
-  # TODO: If any single run fails, some files like the output .fasta will not be generated, causing an error.
-  #       Need to make the testing more specific.
-  echo "ERROR: output files from the test do not match the expected output files in '${expected_dir}'."
-  echo "Please compare '${output_dir}/outputs.list' to '${output_dir}/expected.list' for troubleshooting."
-  exit 1
-fi
-
-# Check the contents of each output file
+# Check each output file
 failed_tests=0
-test_files=($(cat "${output_dir}/outputs.list"))
-for test_filename in "${test_files[@]}"; do
-  test_filepath="${output_dir}/${test_filename}"
-  ref_filepath="${expected_dir}/${test_filename}"
+ref_filepaths=($(find "${expected_dir}" -name "*.fasta" -or -name "*.tsv" -or -name "*.exit" | grep -v "copied" | sort -h))
+for ref_filepath in "${ref_filepaths[@]}"; do
+  ref_filename="${ref_filepath##*/}"
+  test_filepath="${output_dir}/${ref_filename}"
 
+  # Test if the output file was created
+  if [[ ! -f "${test_filepath}" ]]; then
+    echo "[ FAIL ]: ${ref_filename}: file missing"
+    failed_tests=$((failed_tests+1))
+    continue
+  fi
+
+  # Test the contents of the output file
   set +e
   cmp_status=$(cmp "${ref_filepath}" "${test_filepath}" >/dev/null 2>&1 && echo $?)
   set -e
 
   if [[ "${cmp_status}" == 0 ]]; then
-    echo "[ PASS ]: ${test_filename}"
+    echo "[ PASS ]: ${ref_filename}"
   else
-    echo "[ FAIL ]: ${test_filename}"
+    echo "[ FAIL ]: ${ref_filename}"
     failed_tests=$((failed_tests+1))
   fi
 done
