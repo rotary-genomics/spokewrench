@@ -1,5 +1,5 @@
 name: test-rotate-end-to-end
-on: pull_request_review
+on: [pull_request, pull_request_review]
 
 jobs:
   install:

@@ -7,3 +7,4 @@ dependencies:
   - python=3.9.*
   - pandas=1.4.*
   - biopython=1.81
+  - pip
