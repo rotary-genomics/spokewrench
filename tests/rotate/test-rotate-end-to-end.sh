@@ -139,9 +139,11 @@ echo "###########################"
 if [[ $failed_tests == 0 ]]; then
   echo "SUMMARY: All tests passed."
   rm -r "${output_dir}"
+  echo "###########################"
+  echo "$(basename $0): Done."
 else
   echo "SUMMARY: ${failed_tests} tests failed. Will not remove output dir '${output_dir}'."
+  echo "###########################"
+  echo "$(basename $0): Done, but exiting with status code 1 due to test failures."
+  exit 1
 fi
-echo "###########################"
-
-echo "$(basename $0): Done."
