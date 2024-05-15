@@ -17,6 +17,7 @@ jobs:
           auto-update-conda: true
           python-version: 3.9
           channels: conda-forge,bioconda,defaults
+          architecture: x64
           environment-file: .github/envs/spokewrench.yml
           activate-environment: spokewrench
           auto-activate-base: false
