@@ -1,0 +1,29 @@
+name: Install
+on: [pull_request, pull_request_review]
+
+jobs:
+  install:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ "ubuntu-latest", "macos-latest" ]
+    steps:
+      - name: checkout repo
+        uses: actions/checkout@v4
+      - name: create conda env
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          python-version: 3.9
+          channels: conda-forge,bioconda,defaults
+          architecture: x64
+          environment-file: environment.yml
+          activate-environment: spokewrench
+          auto-activate-base: false
+      - name: install spokewrench
+        shell: bash -el {0}
+        run: pip install --editable .
+      - name: test install of spokewrench rotate
+        shell: bash -el {0}
+        run: spokewrench -h

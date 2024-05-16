@@ -1,3 +1,4 @@
+name: spokewrench
 channels:
   - conda-forge
   - bioconda
