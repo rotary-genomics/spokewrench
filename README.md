@@ -1,5 +1,3 @@
-[![Install tests](https://github.com/rotary-genomics/spokewrench/actions/workflows/main.yml/badge.svg)](https://github.com/rotary-genomics/spokewrench/actions/workflows/main.yml)
-
 # spokewrench
 Circularization-related utilities for the rotary pipeline
 
