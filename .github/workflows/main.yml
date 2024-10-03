@@ -25,9 +25,12 @@ jobs:
           channel-priority: strict
           activate-environment: spokewrench
           auto-activate-base: false
+      - name: check conda channels
+        shell: bash -el {0}
+        run: conda config --show channels
       - name: install spokewrench
         shell: bash -el {0}
         run: pip install --editable .
-      - name: test install of spokewrench rotate
+      - name: test install of spokewrench
         shell: bash -el {0}
         run: spokewrench -h
