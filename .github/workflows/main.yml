@@ -21,6 +21,7 @@ jobs:
           channels: conda-forge,bioconda
           show-channel-urls: true
           architecture: x64
+          condarc-file: .github/workflows/.condarc
           environment-file: environment.yml
           channel-priority: strict
           activate-environment: spokewrench
