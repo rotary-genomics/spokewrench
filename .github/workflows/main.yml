@@ -23,8 +23,10 @@ jobs:
           auto-activate-base: true
       - name: create conda env
         shell: bash -el {0}
-        run: conda env create --file=environment.yml && 
-             conda activate spokewrench
+        run: conda env create --file=environment.yml
+      - name: activate conda env
+        shell: bash -el {0}
+        run: conda activate spokewrench
       - name: check conda channels
         shell: bash -el {0}
         run: conda config --show channels
