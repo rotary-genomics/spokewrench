@@ -20,6 +20,7 @@ jobs:
           architecture: x64
           environment-file: environment.yml
           channel-priority: strict
+          show-channel-urls: true
           activate-environment: spokewrench
           auto-activate-base: false
       - name: install spokewrench
