@@ -27,10 +27,8 @@ jobs:
         shell: bash -el {0}
         run: conda config --show channels
       - name: create conda env
-        uses: conda-incubator/setup-miniconda@v3
-        with:
-          environment-file: environment.yml
-          activate-environment: spokewrench
+        shell: bash -el {0}
+        run: conda env create --file=environment.yml && conda activate spokewrench
       - name: install spokewrench
         shell: bash -el {0}
         run: pip install --editable .
