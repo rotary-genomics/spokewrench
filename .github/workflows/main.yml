@@ -11,7 +11,7 @@ jobs:
     steps:
       - name: checkout repo
         uses: actions/checkout@v4
-      - name: create conda env
+      - name: set up conda
         uses: conda-incubator/setup-miniconda@v3
         with:
           auto-update-conda: true
@@ -21,6 +21,7 @@ jobs:
           condarc-file: .github/workflows/.condarc
           channel-priority: strict
           auto-activate-base: true
+      - name: create conda env
         shell: bash -el {0}
         run: conda env create --file=environment.yml 
              conda activate spokewrench
