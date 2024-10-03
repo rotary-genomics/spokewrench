@@ -11,24 +11,25 @@ jobs:
     steps:
       - name: checkout repo
         uses: actions/checkout@v4
-      - name: set up conda
+      - name: create conda env
         uses: conda-incubator/setup-miniconda@v3
         with:
-          miniforge-variant: Miniforge3
-          miniforge-version: latest
           auto-update-conda: true
           python-version: 3.9
           show-channel-urls: true
           architecture: x64
           condarc-file: .github/workflows/.condarc
           channel-priority: strict
-          auto-activate-base: false
+          auto-activate-base: true
+        shell: bash -el {0}
+        run: conda env create --file=environment.yml 
+             conda activate spokewrench
       - name: check conda channels
         shell: bash -el {0}
         run: conda config --show channels
-      - name: create conda env
+      - name: check conda env
         shell: bash -el {0}
-        run: conda env create --file=environment.yml && conda activate spokewrench
+        run: conda env list
       - name: install spokewrench
         shell: bash -el {0}
         run: pip install --editable .
