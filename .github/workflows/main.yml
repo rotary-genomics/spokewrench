@@ -14,11 +14,16 @@ jobs:
       - name: create conda env
         uses: conda-incubator/setup-miniconda@v3
         with:
-          auto-update-conda: true
+          miniforge-variant: Miniforge3
+          miniforge-version: latest
           python-version: 3.9
-          channels: conda-forge,bioconda,defaults
+          channels: conda-forge,bioconda
           architecture: x64
+          auto-update-conda: ""
+          condarc-file: .github/workflows/.condarc
           environment-file: environment.yml
+          channel-priority: strict
+          show-channel-urls: true
           activate-environment: spokewrench
           auto-activate-base: false
       - name: install spokewrench
