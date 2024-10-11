@@ -1,5 +1,5 @@
 package:
-  name: rotary-utils
+  name: spokewrench
   version: "0.1.0"
 
 source:
@@ -8,19 +8,19 @@ source:
 requirements:
   host:
     - python
-    - poetry
+    - pip
   run:
     - pandas=1.4
     - biopython=1.81
 
 build:
-  script: poetry install
+  script: pip install .
 
 test:
   commands:
-    - rotary-utils -h
+    - spokewrench -h
 
 about:
-  home: https://github.com/rotary-genomics/rotary-utils
+  home: https://github.com/rotary-genomics/spokewrench
   license: BSD 3
   license_file: LICENSE
