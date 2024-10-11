@@ -52,6 +52,7 @@ def main(args):
     dependency_dict = dict(zip(DEPENDENCY_NAMES, dependency_paths))
 
     # Parse some command line inputs further
+    # TODO - add more based on stitch_contig_ends
     cli_tool_settings_dict = {'circlator_min_id': args.circlator_min_id,
                               'circlator_min_length': args.circlator_min_length,
                               'circlator_ref_end': args.circlator_ref_end,
@@ -576,26 +577,22 @@ def stitch_contig_ends(circular_contig_filepath: str, guide_contig_filepath: str
 
     coords_data = parse_coords_file(coords_filepath_initial)
 
-    negative_hit_candidates = identify_possible_stitch_hits(coords_data, hit_side='negative',
-                                                            query_end_proximity=cli_tool_settings_dict[
-                                                                'circlator_reassemble_end'],
-                                                            ref_end_proximity=cli_tool_settings_dict[
-                                                                'circlator_ref_end'])
+    negative_hit_candidates = (
+        identify_possible_stitch_hits(coords_data, hit_side='negative',
+                                      query_end_proximity=cli_tool_settings_dict['circlator_reassemble_end'],
+                                      ref_end_proximity=cli_tool_settings_dict['circlator_ref_end']))
+    positive_hit_candidates = (
+        identify_possible_stitch_hits(coords_data, hit_side='positive',
+                                      query_end_proximity=cli_tool_settings_dict['circlator_reassemble_end'],
+                                      ref_end_proximity=cli_tool_settings_dict['circlator_ref_end']))
 
-    positive_hit_candidates = identify_possible_stitch_hits(coords_data, hit_side='positive',
-                                                            query_end_proximity=cli_tool_settings_dict[
-                                                                'circlator_reassemble_end'],
-                                                            ref_end_proximity=cli_tool_settings_dict[
-                                                                'circlator_ref_end'])
-
-    # List of tuples (negative hit id, positive hit id) of possible hit pairs to test for stitching just based on ref
-    #   and query sequence IDs matching
-    # TODO (IMPORTANT) - **for this and the next step, add support for possible sequence reversal**
+    # Determine all possible hit pairs just based on ref and query sequence IDs matching
     possible_pairs = find_possible_hit_pairs(coords_data, negative_hit_candidate_ids=negative_hit_candidates,
                                              positive_hit_candidate_ids=positive_hit_candidates)
 
-    # Pairs that pass the required search criteria
-    passing_pairs = evaluate_possible_hit_pairs(possible_pairs=possible_pairs,
+    # Determine pairs that pass the required search criteria
+    # TODO (IMPORTANT) - **add support for possible sequence reversal**
+    passing_pairs = evaluate_possible_hit_pairs(possible_pairs=possible_pairs, coords_data=coords_data,
                                                 min_alignment_length=cli_tool_settings_dict['min_alignment_length'],
                                                 max_discrepancy_in_alignment_length_proportion=
                                                 cli_tool_settings_dict['max_discrepancy_in_alignment_length_proportion'],
@@ -603,20 +600,46 @@ def stitch_contig_ends(circular_contig_filepath: str, guide_contig_filepath: str
                                                 max_gap_length=cli_tool_settings_dict['max_gap_length'])
 
     # Determine if a single passing hit pair was found
-    # TODO - add contig pair names to log if easy to do
-    # TODO - consider adding support for multiple matching pairs. This is currently rare, but if a user input
-    #        multiple references and stitch contigs at once in future, it would be needed.
+    # TODO - move to its own function? with single_passing_pair and stitch_pair_coords_data as output?
+    single_passing_pair = False
     if len(passing_pairs) == 1:
+        single_passing_pair = True
         negative_side_hit, positive_side_hit = possible_pairs[0]
-        logger.info(f'Stitch pair identified: hit IDs {negative_side_hit} and {positive_side_hit}')
         stitch_pair_coords_data = coords_data[(coords_data['hit-id'] == negative_side_hit) |
                                               (coords_data['hit-id'] == positive_side_hit)]
+        logger.info(f'Stitch pair identified: hit IDs {negative_side_hit} and {positive_side_hit} between '
+                    f'query {coords_data['qseqid'][0]} and subject {coords_data['sseqid'][0]}')
         stitch_pair_coords_data.to_csv(os.path.join(output_dir, f'{output_prefix}_pair_coords.tsv'),
                                        sep='\t', index=False)
-    else:
-        logger.info(f'No suitable stitch pair identified')
+        logger.info(f'Alignment coords written to file: {os.path.join(output_dir, f'{output_prefix}_pair_coords.tsv')}')
 
-    # TODO - stopped at the end of step 5
+    elif len(passing_pairs) == 0:
+        logger.info(f'No suitable stitch pair identified')
+    elif len(passing_pairs) > 1:
+        # TODO - consider adding contig pair names to log or writing the candidates to a file
+        # TODO - consider adding support for multiple matching pairs. This is currently rare, but if a user input
+        #        multiple references and stitch contigs at once in future, it would be needed.
+        logger.info(f'Although {len(passing_pairs)} potentially suitable stitch pairs were identified, none will be '
+                    f'used for stitching, because only one potentially suitable pair is expected.')
+    else:
+        error = ValueError(f'Expected len(passing_pairs) to be an integer of at least 0, but got {len(passing_pairs)}')
+        logger.error(error)
+        raise error
+
+    if single_passing_pair == True:
+        # TODO - stopped here, during step 6
+        # TODO - function not yet written
+        integrate_query_and_reference(query_filepath=guide_contig_filepath, ref_filepath=circular_contig_filepath,
+                                      stitch_pair_coords_data=stitch_pair_coords_data)
+        # TODO - add reporting (step 7)
+
+    elif single_passing_pair == False:
+        logger.info('Cannot stitch query and reference, so copying reference to output folder as-is.')
+        # TODO - copy reference as-is? Or maybe add a flag where it can error out if needed?
+    else:
+        error = ValueError(f'single_passing_pair should be True or False, but got {single_passing_pair}')
+        logger.error(error)
+        raise error
 
 
 def parse_cli(subparsers=None):
