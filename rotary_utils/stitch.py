@@ -276,6 +276,16 @@ def parse_coords_file(coords_filepath, add_hit_id: bool = True, header_row_num: 
     :return: pandas DataFrame of the .coords file data
     """
 
+    # Example stats file (.coords)
+    """
+    /Git/rotary/tests/repair/input/processed/genome_subset.fna /Git/rotary/tests/repair/output1/repaired.fasta
+    NUCMER
+
+    [S1]	[E1]	[S2]	[E2]	[LEN 1]	[LEN 2]	[% IDY]	[LEN R]	[LEN Q]	[TAGS]
+    1	153979	87413	241410	153979	153998	99.94	241389	241410	CP128402	CP128402
+    153980	241389	1	87412	87410	87412	99.85	241389	241410	CP128402	CP128402
+    """
+
     # Get the column names from the file (this is tricky because TAGS includes 2 columns, causing an error in pandas)
     header_names = parse_mummer_stats_file_header(coords_filepath, header_row_num=header_row_num)
 
@@ -295,8 +305,8 @@ def parse_coords_file(coords_filepath, add_hit_id: bool = True, header_row_num: 
     return coords_data
 
 
-def identify_possible_stitch_hits(coords_data: pd.DataFrame, hit_side: str, query_end_proximity: int,
-                                  ref_end_proximity: int) -> list:
+def identify_possible_stitch_hits(coords_data: pd.DataFrame, hit_side: str, query_end_proximity: int = 100,
+                                  ref_end_proximity: int = 30) -> list:
     """
     Identifies possible nucmer hits between a query and reference that might be suitable for stitching. Works one
     'side' at a time (for 'sides' of the reference contig).
@@ -305,27 +315,29 @@ def identify_possible_stitch_hits(coords_data: pd.DataFrame, hit_side: str, quer
     :param hit_side: 'positive' (i.e., near the 1 position on the circular reference) or 'negative' (i.e., near the end
                      of the circular reference, which could be counted as negative from the zero point)
     :param query_end_proximity: minimum distance (bp) between the real end of the query sequence and the end of the
-                                nucmer hit for the hit to be considered reliable
+                                nucmer hit for the hit to be considered reliable. In other words, if the alignment via
+                                nucmer ends 100 bp away from the end of the real sequence, then do you still trust the
+                                alignment, or do you want them to align all the way to the end?
     :param ref_end_proximity: minimum distance (bp) between the real end of the reference sequence and the end of the
-                              nucmer hit for the hit to be considered reliable
-    :return: list of possible hits that could work for the specified reference contig side for stitching
+                              nucmer hit for the hit to be considered reliable. See explanation for query_end_proximity
+                              above. ref_end_proximity might be more important than query_end_proximity, because the end
+                              of the reference needs to be bridged to build the stitch in the end.
+    :return: list of possible hits that could work for the specified reference contig side for stitching, by hit ID
     """
 
     possible_stitch_hit_ids = []
 
     if hit_side == 'negative':
+        # Here, the hit should span from close to the start of the query to close to the end of reference
         for index, rows in coords_data[['hit-id', 'query-start', 'ref-end', 'ref-total-len']].iterrows():
             hit_id, query_start, ref_end, ref_total_len = rows
-
-            # Here, the hit should span from close to the start of the query to close to the end of reference
             if (query_start <= query_end_proximity) & (ref_total_len - ref_end <= ref_end_proximity):
                 possible_stitch_hit_ids.append(hit_id)
 
     elif hit_side == 'positive':
+        # Here, the hit should span from close to the start of the reference to close to the end of the query
         for index, rows in coords_data[['hit-id', 'ref-start', 'query-end', 'query-total-len']].iterrows():
             hit_id, ref_start, query_end, query_total_len = rows
-
-            # Here, the hit should span from close to the start of the reference to close to the end of the query
             if (ref_start <= ref_end_proximity) & (query_total_len - query_end <= query_end_proximity):
                 possible_stitch_hit_ids.append(hit_id)
     else:
@@ -341,19 +353,19 @@ def identify_possible_stitch_hits(coords_data: pd.DataFrame, hit_side: str, quer
 def find_possible_hit_pairs(coords_data: pd.DataFrame, negative_hit_candidate_ids: list,
                             positive_hit_candidate_ids: list) -> list:
     """
-    Using results from identify_possible_stitch_hits, summarize possible negative and positive-side hit pairs for the
-    same query and reference contigs that could work for stitching.
+    Using results from identify_possible_stitch_hits, summarize all negative- and positive-side hit pairs that share
+    the same query and reference contigs. These could potentially be true hit pairs for stitching the contigs.
     :param coords_data: pandas Dataframe of the .coords file from mummer's show-coords, loaded by parse_coords_file.
                         MUST have the 'hit-id' column generated by add_hit_id
     :param negative_hit_candidate_ids: list of hit IDs for negative-side hits to consider
     :param positive_hit_candidate_ids: list of hit IDs for positive-side hits to consider
-    :return: list of tuples (negative hit id, positive hit id) of possible hit pairs to test for stitching
+    :return: list of tuples (negative hit id, positive hit id) of possible hit pairs to test for stitching by hit ID
     """
 
     # Summarize the reference and query sequence IDs associated with each hit
     hit_candidate_metadata = pd.concat([pd.DataFrame({'hit-id': negative_hit_candidate_ids, 'hit-side': 'negative'}),
-                                        pd.DataFrame({'hit-id': positive_hit_candidate_ids, 'hit-side': 'positive'})])\
-        .merge(coords_data[['hit-id', 'qseqid', 'rseqid']], on='hit-id', how='left', validate='1:1')\
+                                        pd.DataFrame({'hit-id': positive_hit_candidate_ids, 'hit-side': 'positive'})]) \
+        .merge(coords_data[['hit-id', 'qseqid', 'rseqid']], on='hit-id', how='left', validate='1:1') \
         .sort_values(by=['rseqid', 'qseqid', 'hit-id'], ascending=True)
 
     # Group the hits based on which reference / query sequence pair they belong to
@@ -372,7 +384,6 @@ def find_possible_hit_pairs(coords_data: pd.DataFrame, negative_hit_candidate_id
             ref_query_pair_previous = ref_query_pair_current
 
         hit_candidate_group.append(hit_candidate_group_counter)
-
     hit_candidate_metadata['group-id'] = hit_candidate_group
 
     # Find possible hit pair combinations (negative and positive) for each reference / query pair
@@ -394,13 +405,120 @@ def find_possible_hit_pairs(coords_data: pd.DataFrame, negative_hit_candidate_id
     return possible_pairs
 
 
-def stitch_contig_ends(circular_contig_filepath: str, guide_contig_filepath: str, output_dir: str,
+def evaluate_single_hit(single_hit_coord_data: pd.DataFrame, min_alignment_length: int = 1000,
+                        max_discrepancy_in_alignment_length_proportion: float = 0.01,
+                        min_percent_identity: float = 99) -> bool:
+    """
+    Test if a single nucmer hit passes the alignment length criteria for stitching.
+    :param single_hit_coord_data: single-row slice of a coords table for the single hit to evaluate
+    :param min_alignment_length: minimum length of alignment on each side of the reference, in bp
+    :param max_discrepancy_in_alignment_length_proportion: maximum proportion (e.g., 0.01 = 1%) by which the sequence
+                                                           length of the reference hit vs. query hit can differ,
+                                                           calculated based on the shortest alignment length.
+    :param min_percent_identity: minimum percent identity (e.g., 99.5) for the alignment
+    :return: boolean of whether the single hit passes the criteria (True) or not (False)
+    """
+
+    if single_hit_coord_data.shape[0] != 1:
+        error = ValueError(f'Input dataframe contains {single_hit_coord_data.shape[0]} rows; expected 1 row.')
+        logger.error(error)
+        raise error
+
+    # TODO: confirm you can split a pandas dataframe row like this
+    hit_id, ref_start, ref_end, query_start, query_end, ref_aln_len, query_aln_len, pident, ref_total_len, \
+        query_total_len, rseqid, qseqid = single_hit_coord_data[0]
+
+    hit_criteria_met = True
+
+    # TODO - logging will be way to verbose here
+    if ref_aln_len < min_alignment_length:
+        logger.debug(f'Hit ID {hit_id} fails due to reference alignment length of {ref_aln_len}')
+        hit_criteria_met = False
+    elif query_aln_len < min_alignment_length:
+        logger.debug(f'Hit ID {hit_id} fails due to reference alignment length of {ref_aln_len}')
+        hit_criteria_met = False
+
+    shortest_alignment = min(ref_aln_len, query_aln_len)
+    discrepancy_in_alignment_length_proportion = (ref_aln_len - query_aln_len) / shortest_alignment
+    if abs(discrepancy_in_alignment_length_proportion) > max_discrepancy_in_alignment_length_proportion:
+        logger.debug(f'Hit ID {hit_id} fails due to discrepancy in reference vs. query alignment length of '
+                     f'{discrepancy_in_alignment_length_proportion * 100}% ({ref_aln_len} bp vs. {query_aln_len} bp)')
+        hit_criteria_met = False
+
+    if pident < min_percent_identity:
+        logger.debug(f'Hit ID {hit_id} fails due to percent identity of alignment of {pident}')
+        hit_criteria_met = False
+
+    return hit_criteria_met
+
+
+def evaluate_possible_hit_pairs(possible_pairs: list, coords_data: pd.DataFrame, min_alignment_length: int = 1000,
+                                max_discrepancy_in_alignment_length_proportion: float = 0.01,
+                                min_percent_identity: float = 99, max_gap_length: int = 500) -> list:
+    """
+    Using results from identify_possible_stitch_hits, determine which possible negative and positive-side hit pairs
+    match the criteria for stitching the query and reference contigs together.
+    :param possible_pairs: list of tuples (negative hit id, positive hit id) of hit pairs, by hit ID, that belong to
+                           the same query/reference sequence pair, to test to see if they meet the stitch criteria
+    :param coords_data: pandas Dataframe of the .coords file from mummer's show-coords, loaded by parse_coords_file.
+                        MUST have the 'hit-id' column generated by add_hit_id
+    :param min_alignment_length: minimum length of alignment on each side of the reference, in bp
+    :param max_discrepancy_in_alignment_length_proportion: maximum proportion (e.g., 0.01 = 1%) by which the sequence
+                                                           length of the reference hit vs. query hit can differ,
+                                                           calculated based on the shortest alignment length.
+    :param min_percent_identity: minimum percent identity (e.g., 99.5) for the alignment
+    :param max_gap_length: maximum gap length in bp, as an absolute value (i.e., works for both a gap and overlap). This
+                           gap length is from the end of the alignments rather than the ends of the sequences themselves
+    :return: list of tuples (negative hit id, positive hit id) of hit pairs that pass the required criteria
+    """
+
+    # Example coords data
+    """
+    hit-id ref-start ref-end query-start query-end ref-aln-len query-aln-len pident ref-total-len query-total-len rseqid   qseqid
+    1      1         153979  87413       241410    153979	   153998        99.94  241389        241410          CP128402 CP128402
+    2      153980    241389  1           87412     87410       87412         99.85  241389        241410          CP128402 CP128402
+    """
+
+    passing_pairs = []
+    for hit_pair in possible_pairs:
+        hit_id_negative, hit_id_positive = hit_pair
+        coords_data_negative = coords_data[coords_data['hit-id'] == hit_id_negative]
+        negative_side_check = evaluate_single_hit(single_hit_coord_data=coords_data_negative,
+                                                  min_alignment_length=min_alignment_length,
+                                                  max_discrepancy_in_alignment_length_proportion=
+                                                  max_discrepancy_in_alignment_length_proportion,
+                                                  min_percent_identity=min_percent_identity)
+
+        coords_data_positive = coords_data[coords_data['hit-id'] == hit_id_positive]
+        positive_side_check = evaluate_single_hit(single_hit_coord_data=coords_data_positive,
+                                                  min_alignment_length=min_alignment_length,
+                                                  max_discrepancy_in_alignment_length_proportion=
+                                                  max_discrepancy_in_alignment_length_proportion,
+                                                  min_percent_identity=min_percent_identity)
+
+        # TODO - here and elsewhere, I assume that the orientation will be positive. What if the query is reversed?
+        gap_length = coords_data_positive['query-start'][0] - coords_data_negative['query-end'][0]
+        if abs(gap_length) > max_gap_length:
+            logger.debug(f'Hit ID pair {hit_id_negative}+{hit_id_positive} fails due to gap length of {gap_length}')
+            continue
+        elif (negative_side_check == True) & (positive_side_check == True):
+            logger.info(f'Hit ID pair {hit_id_negative}+{hit_id_positive} PASSES for reference '
+                        f'{coords_data_negative['rseqid'][0]}')
+            passing_pairs.append((hit_id_negative, hit_id_positive))
+        else:
+            logger.debug(f'Hit ID pair {hit_id_negative}+{hit_id_positive} fails due to >=1 of the sides failing')
+
+        return passing_pairs
+
+
+def stitch_contig_ends(circular_contig_filepath: str, guide_contig_filepath: str, output_dir: str, output_prefix: str,
                        cli_tool_settings_dict: dict, threads: int = 1):
     """
 
     :param circular_contig_filepath:
     :param guide_contig_filepath:
     :param output_dir:
+    :param output_prefix:
     :param cli_tool_settings_dict:
     :param threads:
     :return:
@@ -412,9 +530,9 @@ def stitch_contig_ends(circular_contig_filepath: str, guide_contig_filepath: str
     2. ID possible LHS sequences and RHS sequences (based on proximity to Q-0 (LHS-start), R-L (LHS-end), 
        R-0 (RHS-start), Q-L (RHS-end)
     3. Summarize all possible combinations of LHS:RHS pairs
-    
     4. Test each pair for required params
     5. If only one possible pair, then write a summary coords file. Linking was successful (Otherwise error)
+    
     6. Integration:
        a. Cut out the stitch part from the reference (by keeping the remainder): keep from the RHS nucmer end base to
           the LHS nucmer start
@@ -464,11 +582,35 @@ def stitch_contig_ends(circular_contig_filepath: str, guide_contig_filepath: str
                                                             ref_end_proximity=cli_tool_settings_dict[
                                                                 'circlator_ref_end'])
 
-    # List of tuples (negative hit id, positive hit id) of possible hit pairs to test for stitching
+    # List of tuples (negative hit id, positive hit id) of possible hit pairs to test for stitching just based on ref
+    #   and query sequence IDs matching
+    # TODO (IMPORTANT) - **for this and the next step, add support for possible sequence reversal**
     possible_pairs = find_possible_hit_pairs(coords_data, negative_hit_candidate_ids=negative_hit_candidates,
                                              positive_hit_candidate_ids=positive_hit_candidates)
 
-    # TODO - stopped at step 4
+    # Pairs that pass the required search criteria
+    passing_pairs = evaluate_possible_hit_pairs(possible_pairs=possible_pairs,
+                                                min_alignment_length=cli_tool_settings_dict['min_alignment_length'],
+                                                max_discrepancy_in_alignment_length_proportion=
+                                                cli_tool_settings_dict['max_discrepancy_in_alignment_length_proportion'],
+                                                min_percent_identity=cli_tool_settings_dict['min_percent_identity'],
+                                                max_gap_length=cli_tool_settings_dict['max_gap_length'])
+
+    # Determine if a single passing hit pair was found
+    # TODO - add contig pair names to log if easy to do
+    # TODO - consider adding support for multiple matching pairs. This is currently rare, but if a user input
+    #        multiple references and stitch contigs at once in future, it would be needed.
+    if len(passing_pairs) == 1:
+        negative_side_hit, positive_side_hit = possible_pairs[0]
+        logger.info(f'Stitch pair identified: hit IDs {negative_side_hit} and {positive_side_hit}')
+        stitch_pair_coords_data = coords_data[(coords_data['hit-id'] == negative_side_hit) |
+                                              (coords_data['hit-id'] == positive_side_hit)]
+        stitch_pair_coords_data.to_csv(os.path.join(output_dir, f'{output_prefix}_pair_coords.tsv'),
+                                       sep='\t', index=False)
+    else:
+        logger.info(f'No suitable stitch pair identified')
+
+    # TODO - stopped at the end of step 5
 
 
 def parse_cli(subparsers=None):
