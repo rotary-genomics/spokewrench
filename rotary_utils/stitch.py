@@ -103,7 +103,7 @@ def run_nucmer(query_filepath: str, ref_filepath: str, output_delta_filepath: st
 def run_show_snps(delta_filepath: str, coords_subset_filepath: str, output_snps_filepath: str,
                   log_filepath: str, append_log: bool = True):
     """
-    Maps long reads (via minimap2) to contigs and sorts/indexes the resulting BAM file
+    Runs show-snps from nucmer on a given set of coordinates for a delta file
     :param delta_filepath: path to the FastA file containing the query contig
     :param coords_subset_filepath: path to the FastA file containing the reference contig
     :param output_snps_filepath: path where the output .snps file should be saved
@@ -143,16 +143,13 @@ def rename_identical_entries(entry_list: list, spacer: str = '-') -> list:
     entry_names_revised = []
 
     for entry_name in entry_list:
-
         # If a duplicated entry is encountered
         if entry_name in entry_names_revised:
-
             entry_counter = 1
             unique_entry = False
 
             # Try different ways to rename the entry to make the name unique
             while unique_entry is False:
-
                 entry_name_revised = f'{entry_name}{spacer}{entry_counter}'
 
                 # Test if the revised name is unique
@@ -160,14 +157,11 @@ def rename_identical_entries(entry_list: list, spacer: str = '-') -> list:
                     # TODO - remove this debug entry in future (it is too verbose)
                     logger.debug(f'Renamed {entry_name} to {entry_name_revised}')
                     entry_names_revised.append(entry_name_revised)
-
                     unique_entry = True
 
                 entry_counter = entry_counter + 1
-
         else:
             entry_names_revised.append(entry_name)
-
     return entry_names_revised
 
 
@@ -201,13 +195,11 @@ def parse_mummer_stats_file_header(mummer_stats_file_path, number_identical_head
     line_num = 0
     with open(mummer_stats_file_path) as input_handle:
         for line in input_handle:
-
             if line_num == header_row_num:
                 header_entry = line.rstrip()
                 break
 
             line_num = line_num + 1
-
     header_names = header_entry.split('\t')
 
     if len(header_names) == 1:
@@ -218,15 +210,14 @@ def parse_mummer_stats_file_header(mummer_stats_file_path, number_identical_head
     if len(set(header_names)) < len(header_names):
         if number_identical_headers is True:
             header_names = rename_identical_entries(header_names)
-
         elif number_identical_headers is False:
             logger.warning('At least two identical header names were found. Set number_identical_headers to true if '
                            'you want to add counters to these to make them distinct')
-
         else:
-            logger.error(f'number_identical_headers must be True or False, but you specified '
-                         f'{number_identical_headers}')
-            raise ValueError
+            error = ValueError(f'number_identical_headers must be True or False, but you specified '
+                               f'{number_identical_headers}')
+            logger.error(error)
+            raise error
 
     # Add a custom header for the second TAG column
     header_names.append('[TAGS2]')
@@ -244,7 +235,7 @@ def parse_snps_file(snps_filepath, header_row_num: int = 3) -> pd.DataFrame:
     :return:
     """
 
-    # TODO - delete this example snippet once the code is working
+    # Example .snps file snippet
     """
     /Git/rotary/tests/repair/input/processed/genome_subset.fna /Git/rotary/tests/repair/output1/repaired.fasta
     NUCMER
@@ -323,7 +314,6 @@ def identify_possible_stitch_hits(coords_data: pd.DataFrame, hit_side: str, quer
     possible_stitch_hit_ids = []
 
     if hit_side == 'negative':
-
         for index, rows in coords_data[['hit-id', 'query-start', 'ref-end', 'ref-total-len']].iterrows():
             hit_id, query_start, ref_end, ref_total_len = rows
 
@@ -332,17 +322,16 @@ def identify_possible_stitch_hits(coords_data: pd.DataFrame, hit_side: str, quer
                 possible_stitch_hit_ids.append(hit_id)
 
     elif hit_side == 'positive':
-
         for index, rows in coords_data[['hit-id', 'ref-start', 'query-end', 'query-total-len']].iterrows():
             hit_id, ref_start, query_end, query_total_len = rows
 
             # Here, the hit should span from close to the start of the reference to close to the end of the query
             if (ref_start <= ref_end_proximity) & (query_total_len - query_end <= query_end_proximity):
                 possible_stitch_hit_ids.append(hit_id)
-
     else:
-        logger.error(f'hit_side should be "positive" or "negative"; you provided {hit_side}')
-        raise ValueError
+        error = ValueError(f'hit_side should be "positive" or "negative"; you provided {hit_side}')
+        logger.error(error)
+        raise error
 
     logger.debug(f'Identified {len(possible_stitch_hit_ids)} possible {hit_side} side hits')
 
@@ -389,7 +378,6 @@ def find_possible_hit_pairs(coords_data: pd.DataFrame, negative_hit_candidate_id
     # Find possible hit pair combinations (negative and positive) for each reference / query pair
     possible_pairs = []
     for group_id in hit_candidate_metadata['group-id'].drop_duplicates():
-
         group_members = hit_candidate_metadata[hit_candidate_metadata['group-id'] == group_id]
         group_members_negative = list(group_members[group_members['hit-side'] == 'negative']['hit-id'])
         group_members_positive = list(group_members[group_members['hit-side'] == 'positive']['hit-id'])
