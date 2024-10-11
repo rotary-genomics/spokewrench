@@ -496,6 +496,12 @@ def evaluate_possible_hit_pairs(possible_pairs: list, coords_data: pd.DataFrame,
                                                   max_discrepancy_in_alignment_length_proportion,
                                                   min_percent_identity=min_percent_identity)
 
+        # TODO - add function to test that the orientation of the positive and negative side are compatible.
+        #        Maybe this function can also effectively transform them into a consistent format that will allow
+        #        the code below to run without modification (to avoid introducing too much complexity).
+        #        I think the steps prior to this did not require knowledge of if the alignments are compatible by
+        #        orientation, but also double check this is correct.
+
         # TODO - here and elsewhere, I assume that the orientation will be positive. What if the query is reversed?
         gap_length = coords_data_positive['query-start'][0] - coords_data_negative['query-end'][0]
         if abs(gap_length) > max_gap_length:
