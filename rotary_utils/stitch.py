@@ -323,32 +323,95 @@ def identify_possible_stitch_hits(coords_data: pd.DataFrame, hit_side: str, quer
                               nucmer hit for the hit to be considered reliable. See explanation for query_end_proximity
                               above. ref_end_proximity might be more important than query_end_proximity, because the end
                               of the reference needs to be bridged to build the stitch in the end.
-    :return: list of possible hits that could work for the specified reference contig side for stitching, by hit ID
+    :return: list of possible hits that could work for the specified reference contig side for stitching. It is a list
+             tuples with the hit ID and orientation (e.g., '-+' = backwards query, fowards ref) for the hit
     """
 
     possible_stitch_hit_ids = []
+    possible_stitch_hit_orientations = []
 
-    if hit_side == 'negative':
-        # Here, the hit should span from close to the start of the query to close to the end of reference
-        for index, rows in coords_data[['hit-id', 'query-start', 'ref-end', 'ref-total-len']].iterrows():
-            hit_id, query_start, ref_end, ref_total_len = rows
-            if (query_start <= query_end_proximity) & (ref_total_len - ref_end <= ref_end_proximity):
-                possible_stitch_hit_ids.append(hit_id)
+    for index, rows in coords_data[['hit-id', 'query-start', 'query-end', 'query-total-len',
+                                    'ref-start', 'ref-end', 'ref-total-len']].iterrows():
+        hit_id, query_start, query_end, query_total_len, ref_start, ref_end, ref_total_len = rows
 
-    elif hit_side == 'positive':
-        # Here, the hit should span from close to the start of the reference to close to the end of the query
-        for index, rows in coords_data[['hit-id', 'ref-start', 'query-end', 'query-total-len']].iterrows():
-            hit_id, ref_start, query_end, query_total_len = rows
-            if (ref_start <= ref_end_proximity) & (query_total_len - query_end <= query_end_proximity):
-                possible_stitch_hit_ids.append(hit_id)
-    else:
-        error = ValueError(f'hit_side should be "positive" or "negative"; you provided {hit_side}')
-        logger.error(error)
-        raise error
+        # TODO - split into its own function, e.g., during definition of an object
+        # Determine hit orientation (query-reference, e.g., -+ = query is backwards, reference is forwards)
+        if (query_start < query_end) & (ref_start < ref_end):
+            possible_stitch_hit_orientation = '++'
+        elif (query_end < query_start) & (ref_start < ref_end):
+            possible_stitch_hit_orientation = '-+'
+        elif (query_start < query_end) & (ref_end < ref_start):
+            possible_stitch_hit_orientation = '+-'
+        elif (query_end < query_start) & (ref_end < ref_start):
+            possible_stitch_hit_orientation = '--'
+        else:
+            error = ValueError(f'Could not determine hit orientation - are the start and end positions equal? '
+                               f'Q-start: {query_start}, Q-end: {query_end}, '
+                               f'R-start: {ref_start}, R-end: {ref_end}')
+            logger.error(ValueError)
+            raise error
+
+        hit_passes = True
+        if hit_side == 'negative':
+            # Here, if ++, the hit should span from close to the start of the query to close to the end of reference
+            if possible_stitch_hit_orientation[0] == '+':
+                if query_start > query_end_proximity:
+                    hit_passes = False
+            elif possible_stitch_hit_orientation[0] == '-':
+                if query_total_len - query_start > query_end_proximity:
+                    hit_passes = False
+            else:
+                raise ValueError
+
+            if possible_stitch_hit_orientation[1] == '+':
+                if ref_total_len - ref_end > ref_end_proximity:
+                    hit_passes = False
+            elif possible_stitch_hit_orientation[1] == '-':
+                if ref_end > ref_end_proximity:
+                    hit_passes = False
+            else:
+                raise ValueError
+
+        elif hit_side == 'positive':
+            # Here, if ++, the hit should span from close to the start of the reference to close to the end of the query
+            if possible_stitch_hit_orientation[0] == '+':
+                if query_total_len - query_end > query_end_proximity:
+                    hit_passes = False
+            elif possible_stitch_hit_orientation[0] == '-':
+                if query_end > query_end_proximity:
+                    hit_passes = False
+            else:
+                raise ValueError
+
+            if possible_stitch_hit_orientation[1] == '+':
+                if ref_start > ref_end_proximity:
+                    hit_passes = False
+            elif possible_stitch_hit_orientation[1] == '-':
+                if ref_total_len - ref_start > ref_end_proximity:
+                    hit_passes = False
+            else:
+                raise ValueError
+        else:
+            error = ValueError(f'hit_side should be "positive" or "negative"; you provided {hit_side}')
+            logger.error(error)
+            raise error
+
+        if hit_passes is True:
+            possible_stitch_hit_ids.append(hit_id)
+            possible_stitch_hit_orientations.append(possible_stitch_hit_orientation)
 
     logger.debug(f'Identified {len(possible_stitch_hit_ids)} possible {hit_side} side hits')
 
-    return possible_stitch_hit_ids
+    # TODO - this is just an initial prototype and has several issues
+    # TODO - zip this so the ID corresponds to the orientation in the same tuple
+    # TODO - consider making an object where the orientations of the two sides are saved separately
+    # TODO - reconcile with functions downstream
+    # TODO - the code above seems like a matrix and maybe can be simplified as such
+    # TODO - reconsider the negative and positive terminology - it is confusing with strandedness and also conflicts
+    #        between the side of the hit and the orientation of the hit
+    output_tuple = (possible_stitch_hit_ids, possible_stitch_hit_orientations)
+
+    return output_tuple
 
 
 def find_possible_hit_pairs(coords_data: pd.DataFrame, negative_hit_candidate_ids: list,
@@ -587,6 +650,8 @@ def stitch_contig_ends(circular_contig_filepath: str, guide_contig_filepath: str
                                       ref_end_proximity=cli_tool_settings_dict['circlator_ref_end']))
 
     # Determine all possible hit pairs just based on ref and query sequence IDs matching
+    # TODO - like below, maybe also need to check here that ref ends are really the right ends
+    #        Maybe the function to ID + and - hits could also check for orientation??
     possible_pairs = find_possible_hit_pairs(coords_data, negative_hit_candidate_ids=negative_hit_candidates,
                                              positive_hit_candidate_ids=positive_hit_candidates)
 
