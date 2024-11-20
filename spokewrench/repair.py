@@ -498,7 +498,7 @@ def process_end_linkage_results(contig_id: str, end_linkage_complete: bool, link
 
         if keep_temp_files is True:
             shutil.move(os.path.join(linking_outdir, 'logs'),
-                        os.path.join(repair_paths.linking_outdir_base, 'log_summary', f'{contig_id}_logs_all'))
+                        os.path.join(repair_paths.linking_outdir_base, 'log_summary', f'{contig_id}_run_files'))
 
         shutil.rmtree(linking_outdir)
     else:
