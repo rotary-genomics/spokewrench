@@ -517,7 +517,7 @@ def stitch_all_contigs(repair_paths: RepairPaths, length_thresholds: list, tool_
     :param repair_paths: RepairPaths object containing paths to output files used in the repair process.
     :param length_thresholds: list of bp regions around the contig ends to attempt to subset for the assembly.
     :param tool_settings: RepairToolSettings object containing settings for tools used in the end repair workflow.
-    :param keep_temp_files: Boolean of whether to keep temp files (True) or not (False)
+    :param keep_temp_files: Boolean of whether to keep temp files (True) or not (False).
     :return: list of the names of any contigs that could not be stitched successfully (list length will be zero if all
              contigs stitched successfully).
     """
