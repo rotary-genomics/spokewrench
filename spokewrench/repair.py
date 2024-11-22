@@ -62,6 +62,7 @@ def main(args):
     logger.debug(f'Circlator ref. end: {tool_settings.circlator_ref_end}')
     logger.debug(f'Circlator reassembly end: {tool_settings.circlator_reassemble_end}')
     logger.debug(f'Custom log file path: {args.logfile}')
+    logger.debug(f'Keep temp files?: {args.keep_temp_files}')
     logger.debug(f'Threads: {tool_settings.threads}')
     logger.debug(f'Memory per thread (GB = MB): {args.threads_mem} = {tool_settings.threads_mem_mb}')
     logger.debug(f'Verbose logging: {args.verbose}')
@@ -69,7 +70,7 @@ def main(args):
 
     assembly_info = AssemblyInfo(args.assembly_fasta_filepath, args.assembly_info_filepath, assembly_info_type)
     run_end_repair(args.long_read_filepath, assembly_info, args.output_dir, length_thresholds,
-                   args.keep_going_with_failed_contigs, tool_settings)
+                   args.keep_going_with_failed_contigs, tool_settings, args.keep_temp_files)
 
     logger.info(os.path.basename(sys.argv[0]) + ': done.')
 
@@ -382,7 +383,8 @@ def process_successful_stitch(contig_id, stitch_dirs):
 
 
 def iterate_linking_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: str, linking_outdir: str,
-                                length_thresholds: list, tool_settings: RepairToolSettings, verbose_logfile: str):
+                                length_thresholds: list, tool_settings: RepairToolSettings, keep_temp_files: bool,
+                                verbose_logfile: str):
     """
     Iterate link_contig_ends to try to stitch the ends of a circular contig using multiple length thresholds.
 
@@ -393,6 +395,7 @@ def iterate_linking_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: st
                            before the function is run.
     :param length_thresholds: list of bp regions around the contig ends to attempt to subset for the assembly.
     :param tool_settings: RepairToolSettings object containing settings for tools used in the end repair workflow.
+    :param keep_temp_files: Boolean of whether to keep temp files (True) or not (False).
     :param verbose_logfile: path to a logfile where shell script logs will be saved.
     :return: boolean of whether end linkage was successful (True) or not (False).
     """
@@ -443,6 +446,10 @@ def iterate_linking_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: st
         shutil.copy(os.path.join(length_outdir, 'assembly', 'assembly_info.txt'), log_dir)
         shutil.copy(os.path.join(length_outdir, 'merge', 'merge.circularise.log'), log_dir)
         shutil.copy(os.path.join(length_outdir, 'merge', 'merge.circularise_details.log'), log_dir)
+        if keep_temp_files is True:
+            shutil.copy(os.path.join(length_outdir, 'assembly', 'assembly.fasta'),
+                        os.path.join(log_dir, 'patch_contigs.fasta'))
+            shutil.copy(os.path.join(length_outdir, 'ends.fastq.gz'), log_dir)
 
         if check_circlator_success(os.path.join(length_outdir, 'merge', 'merge.circularise.log')):
             logger.info('Successfully linked contig ends')
@@ -461,7 +468,7 @@ def iterate_linking_contig_ends(contig_record: SeqIO.SeqRecord, bam_filepath: st
 
 
 def process_end_linkage_results(contig_id: str, end_linkage_complete: bool, linking_outdir: str,
-                                repair_paths: RepairPaths):
+                                repair_paths: RepairPaths, keep_temp_files: bool):
     """
     Performs file operations on the end linkage analysis files depending on the status of end linkage.
     For example, if end linkage was successful, appends the successfully linked contig to the main output file and keeps
@@ -472,6 +479,7 @@ def process_end_linkage_results(contig_id: str, end_linkage_complete: bool, link
     :param end_linkage_complete: boolean of whether end linkage was successful (True) or unsuccessful (False).
     :param linking_outdir: output directory for the analysis.
     :param repair_paths: RepairPaths object containing paths to output files used in the repair process.
+    :param keep_temp_files: Boolean of whether to keep temp files (True) or not (False).
     """
 
     if end_linkage_complete is False:
@@ -487,6 +495,11 @@ def process_end_linkage_results(contig_id: str, end_linkage_complete: bool, link
 
         shutil.move(os.path.join(linking_outdir, 'logs', f'{contig_id}_circlator_final.log'),
                     os.path.join(repair_paths.linking_outdir_base, 'log_summary', f'{contig_id}.log'))
+
+        if keep_temp_files is True:
+            shutil.move(os.path.join(linking_outdir, 'logs'),
+                        os.path.join(repair_paths.linking_outdir_base, 'log_summary', f'{contig_id}_run_files'))
+
         shutil.rmtree(linking_outdir)
     else:
         error = ValueError(f'end_linkage_complete should be True or False, but instead, it is '
@@ -495,7 +508,8 @@ def process_end_linkage_results(contig_id: str, end_linkage_complete: bool, link
         raise error
 
 
-def stitch_all_contigs(repair_paths: RepairPaths, length_thresholds: list, tool_settings: RepairToolSettings):
+def stitch_all_contigs(repair_paths: RepairPaths, length_thresholds: list, tool_settings: RepairToolSettings,
+                       keep_temp_files: bool):
     """
     Run the iterate_linking_contig_ends function on all contigs in an input FastA file, i.e., attempt to stitch the ends
     of all the contigs (assumed circular) in the file. Writes stitched contigs to end_repaired_contigs_filepath.
@@ -503,6 +517,7 @@ def stitch_all_contigs(repair_paths: RepairPaths, length_thresholds: list, tool_
     :param repair_paths: RepairPaths object containing paths to output files used in the repair process.
     :param length_thresholds: list of bp regions around the contig ends to attempt to subset for the assembly.
     :param tool_settings: RepairToolSettings object containing settings for tools used in the end repair workflow.
+    :param keep_temp_files: Boolean of whether to keep temp files (True) or not (False).
     :return: list of the names of any contigs that could not be stitched successfully (list length will be zero if all
              contigs stitched successfully).
     """
@@ -523,10 +538,11 @@ def stitch_all_contigs(repair_paths: RepairPaths, length_thresholds: list, tool_
             linking_outdir = os.path.join(repair_paths.linking_outdir_base, contig_record.name)
 
             end_linkage_complete = iterate_linking_contig_ends(contig_record, repair_paths.bam_filepath, linking_outdir,
-                                                               length_thresholds, tool_settings,
+                                                               length_thresholds, tool_settings, keep_temp_files,
                                                                repair_paths.verbose_logfile)
             process_end_linkage_results(contig_id=contig_record.name, end_linkage_complete=end_linkage_complete,
-                                        linking_outdir=linking_outdir, repair_paths=repair_paths)
+                                        linking_outdir=linking_outdir, repair_paths=repair_paths,
+                                        keep_temp_files=keep_temp_files)
 
             if end_linkage_complete is False:
                 failed_contig_names.append(contig_record.name)
@@ -535,7 +551,7 @@ def stitch_all_contigs(repair_paths: RepairPaths, length_thresholds: list, tool_
 
 
 def run_end_repair(long_read_filepath: str, assembly_info: AssemblyInfo, output_dir: str, length_thresholds: list,
-                   keep_failed_contigs: bool, tool_settings: RepairToolSettings):
+                   keep_failed_contigs: bool, tool_settings: RepairToolSettings, keep_temp_files: bool):
     """
     Runs the end repair workflow.
 
@@ -547,6 +563,7 @@ def run_end_repair(long_read_filepath: str, assembly_info: AssemblyInfo, output_
                                  repaired (True) vs. to 2) exit with an error code if some contigs cannot be end
                                  repaired (False).
     :param tool_settings: RepairToolSettings object containing settings for tools used in the end repair workflow.
+    :param keep_temp_files: Boolean of whether to keep temp files (True) or not (False).
     """
 
     repair_paths = RepairPaths(output_dir)
@@ -574,7 +591,7 @@ def run_end_repair(long_read_filepath: str, assembly_info: AssemblyInfo, output_
                    append_log=False, threads=tool_settings.threads, threads_mem_mb=tool_settings.threads_mem_mb)
 
     failed_contig_names = stitch_all_contigs(repair_paths=repair_paths, length_thresholds=length_thresholds,
-                                             tool_settings=tool_settings)
+                                             tool_settings=tool_settings, keep_temp_files=keep_temp_files)
     os.makedirs(repair_paths.circlator_logs, exist_ok=True)
     shutil.move(os.path.join(repair_paths.linking_outdir_base, 'log_summary'), repair_paths.circlator_logs)
 
@@ -592,9 +609,10 @@ def run_end_repair(long_read_filepath: str, assembly_info: AssemblyInfo, output_
     write_repair_report(contig_info, repair_paths)
 
     # Clean up temp files
-    os.remove(repair_paths.bam_filepath)
-    os.remove(f'{repair_paths.bam_filepath}.bai')
     shutil.rmtree(repair_paths.linking_outdir_base)
+    if keep_temp_files is False:
+        os.remove(repair_paths.bam_filepath)
+        os.remove(f'{repair_paths.bam_filepath}.bai')
 
     log_repair_complete(contig_info, repair_paths)
 
@@ -758,6 +776,9 @@ def subparse_cli(subparsers, parent_parser: argparse.ArgumentParser = None):
                                    default='100000,75000,50000,25000,5000,2500,1000', type=str,
                                    help='Comma-separated list of length thresholds for reassembly around the contig '
                                         'ends (bp) (default: 100000,75000,50000,25000,5000,2500,1000)')
+    workflow_settings.add_argument('-K', '--keep_temp_files', required=False, action='store_true',
+                                   help='Set this flag to keep temporary files such as gap-spanning contig FastA '
+                                        'files, BAM files, and so on, for debugging.')
     workflow_settings.add_argument('-t', '--threads', metavar='JOBS', required=False, default=1, type=int,
                                    help='Number of processors threads to use (default: 1)')
     workflow_settings.add_argument('-m', '--threads_mem', metavar='GB', required=False, default=1, type=float,
